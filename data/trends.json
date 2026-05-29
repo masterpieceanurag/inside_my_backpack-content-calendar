@@ -1,1 +1,66 @@
-[]
+[
+  {
+    "title": "Micro-Monsoon Prep Reels",
+    "description": "With pre-monsoon showers hitting Bangalore in May, creators are sharing quick 15-second transition reels showing monsoon-ready outfits, gear checks, and waterproof essentials. The trend combines practical advice with aesthetic rain visuals and is performing exceptionally well in South Indian metros.",
+    "platform": "Instagram",
+    "category": "Men's Fashion & Lifestyle",
+    "strength": "High",
+    "contentIdea": "Create a quick transition reel showing your everyday work outfit transforming into a monsoon-ready weekend road trip look, featuring waterproof jacket, appropriate footwear, and how you protect your Sony A7III. End with a shot of your car packed for a weekend getaway."
+  },
+  {
+    "title": "Café Productivity Pods",
+    "description": "Working professionals are showcasing Bangalore cafés as 'third spaces' for focused work sessions, rating them on WiFi speed, power outlets, noise levels, and menu value. This trend merges productivity culture with café culture, generating high engagement from the city's tech workforce.",
+    "platform": "Instagram",
+    "category": "City Life & Cafés",
+    "strength": "High",
+    "contentIdea": "Create a series rating HSR Layout and nearby cafés using a scorecard format (WiFi, ambiance, work-friendliness, food quality). Show yourself actually working on your laptop, then transition to trying their signature dish. Use your iPhone for authentic, relatable footage."
+  },
+  {
+    "title": "Summer Hill Station Road Logs",
+    "description": "With May being peak summer, detailed road trip vlogs to nearby hill stations (Coorg, Chikmagalur, Ooty) showing realistic drive times, route conditions, and budget breakdowns are trending heavily. Creators are using drone shots to showcase scenic routes and making content highly practical.",
+    "platform": "YouTube",
+    "category": "Road Trips & Weekend Getaways",
+    "strength": "High",
+    "contentIdea": "Document a weekend drive from Bangalore to Chikmagalur with your DJI Mini 5 Pro capturing the route. Break down exact costs (fuel, tolls, food, stay) against your ₹10k budget. Show the full journey from leaving HSR to reaching the destination, including pit stops and scenic points."
+  },
+  {
+    "title": "Minimal Capsule Wardrobe Challenge",
+    "description": "Men's fashion creators are showcasing 5-7 versatile pieces that create 15+ different looks suitable for Bangalore's unpredictable weather and work-to-weekend transitions. The minimalist approach is resonating with young professionals tired of fast fashion.",
+    "platform": "Instagram",
+    "category": "Men's Fashion",
+    "strength": "Medium",
+    "contentIdea": "Show your essential weekend getaway capsule wardrobe that works for both casual café visits and outdoor road trips. Mix and match 6 pieces into different looks, demonstrating versatility for a working professional with limited packing space for car trips."
+  },
+  {
+    "title": "Home Cook Restaurant Dupes",
+    "description": "Food creators are recreating popular Bangalore restaurant dishes at home with cost comparisons, showing how to make cafe-quality food on a budget. This trend combines cooking tutorials with local food culture and budget consciousness.",
+    "platform": "Facebook",
+    "category": "Food & Cooking",
+    "strength": "Medium",
+    "contentIdea": "Recreate a signature dish from your favorite HSR Layout café at home. Show the cost breakdown (restaurant vs homemade), the cooking process, and a side-by-side taste comparison. Target working professionals who want café-quality food without the daily expense."
+  },
+  {
+    "title": "Weekend 200km Circle Challenges",
+    "description": "Creators are exploring hidden gems within a 200km radius of Bangalore for weekend trips, focusing on lesser-known spots that avoid tourist crowds. The format emphasizes realistic budgets, short drive times, and unique experiences perfect for working professionals with limited time.",
+    "platform": "Instagram",
+    "category": "Weekend Getaways",
+    "strength": "High",
+    "contentIdea": "Create a carousel post or reel series called '200km from HSR' featuring 4-5 unexplored weekend spots you can reach in under 3 hours. Include aerial drone shots of each location, budget breakdown per spot, and why it's perfect for someone with a full-time job."
+  },
+  {
+    "title": "Tech Pro Travel Gear Breakdowns",
+    "description": "Working professionals who travel are sharing their optimized packing systems and gear choices that balance work requirements with travel needs. The trend focuses on practical, tested recommendations rather than aspirational luxury items.",
+    "platform": "YouTube",
+    "category": "Lifestyle & Gear",
+    "strength": "Medium",
+    "contentIdea": "Create a 'What's in my Car for Weekend Getaways' video showing how you've organized your travel gear, camera equipment (Sony A7III, drone), work essentials, and emergency kit. Share why each item made the cut for someone balancing a full-time job with weekend adventures."
+  },
+  {
+    "title": "Bangalore Summer Survival Menu",
+    "description": "Food creators are sharing cooling recipes, hydrating drinks, and heat-beating meal preps specific to Bangalore's May heat. The trend focuses on practical, easy-to-make dishes that don't require extensive cooking time in hot kitchens.",
+    "platform": "Instagram",
+    "category": "Food & Cooking",
+    "strength": "Low",
+    "contentIdea": "Share a quick reel series of 3-4 cooling beverages or light meals you prep for weekend road trips in summer heat. Show the prep process, how you pack them for travel, and enjoying them at a scenic pit stop. Use transitions between kitchen prep and outdoor consumption."
+  }
+]
