@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { callClaude, SYSTEMS } from "./api";
+import ManagerSection from "./Manager";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate, fmtDateObj } from "./data";
 
 // ─── TOKENS ──────────────────────────────────────────────────────────────────
@@ -769,6 +770,7 @@ function GitHubSection({ calendar, trends }) {
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 const NAV = [
   { id:"dashboard", label:"⚡ Dashboard" },
+  { id:"manager",   label:"🧑‍💼 Manager" },
   { id:"calendar",  label:"📅 Calendar" },
   { id:"viral",     label:"🔥 Viral Ideas" },
   { id:"buckets",   label:"🗂️ Buckets" },
@@ -894,6 +896,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
       {/* Body */}
       <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
         {view==="dashboard" && <Dashboard calendar={calendar} trends={trends} loading={loading} pendingAlert={pendingAlert} lastScan={lastScan} onScanTrends={fetchTrends} onGenerateCal={generateCalendar} onCheckAlert={checkAlerts} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
+        {view==="manager"   && <ManagerSection showNotif={showNotif}/>}
         {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
         {view==="viral"     && <ViralSection showNotif={showNotif}/>}
         {view==="buckets"   && <BucketsSection calendar={calendar}/>}
