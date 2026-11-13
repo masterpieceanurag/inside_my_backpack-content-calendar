@@ -1,45 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { callClaude, SYSTEMS } from "./api";
+import { T, Pill, Spinner, Btn, loadStats } from "./ui";
+import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate, fmtDateObj } from "./data";
-
-// ─── TOKENS ──────────────────────────────────────────────────────────────────
-const T = {
-  bg:"#080A0F", surface:"#0D1117", card:"#141820", card2:"#1A2030",
-  border:"#1E2535", border2:"#263040", border3:"#2E3A50",
-  accent:"#F59E0B", amber:"#FBBF24", blue:"#3B82F6", purple:"#8B5CF6",
-  teal:"#14B8A6", green:"#22C55E", red:"#EF4444", pink:"#EC4899",
-  orange:"#FB923C", indigo:"#6366F1",
-  text:"#F0F4FF", text2:"#8899AA", text3:"#445566",
-};
-
-// ─── TINY UI ATOMS ────────────────────────────────────────────────────────────
-const Pill = ({ label, color, small, onClick }) => (
-  <span onClick={onClick} style={{
-    background:color+"20", color, border:`1px solid ${color}35`,
-    borderRadius:5, padding:small?"1px 7px":"3px 10px",
-    fontSize:small?10:11, fontWeight:600, whiteSpace:"nowrap",
-    cursor:onClick?"pointer":"default", userSelect:"none",
-  }}>{label}</span>
-);
-
-const Spinner = ({ size=16, color=T.accent }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24"
-    style={{animation:"_spin .75s linear infinite",flexShrink:0}}>
-    <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
-    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.5" fill="none"
-      strokeDasharray="35 20" strokeLinecap="round"/>
-  </svg>
-);
-
-const Btn = ({ children, onClick, color=T.accent, disabled, small, style:sx }) => (
-  <button onClick={onClick} disabled={disabled} style={{
-    background:disabled?T.border:color+"20", border:`1px solid ${disabled?T.border2:color+"45"}`,
-    color:disabled?T.text3:color, borderRadius:8,
-    padding:small?"5px 11px":"8px 16px", cursor:disabled?"default":"pointer",
-    fontSize:small?11:12, fontWeight:600, display:"inline-flex", alignItems:"center",
-    gap:6, transition:"all .15s", whiteSpace:"nowrap", ...sx,
-  }}>{children}</button>
-);
 
 const Notif = ({ n }) => n ? (
   <div style={{
@@ -769,6 +732,10 @@ function GitHubSection({ calendar, trends }) {
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 const NAV = [
   { id:"dashboard", label:"⚡ Dashboard" },
+  { id:"agent",     label:"🤖 Agent" },
+  { id:"youtube",   label:"▶️ YouTube" },
+  { id:"monetize",  label:"💰 Monetize" },
+  { id:"stats",     label:"📈 My Stats" },
   { id:"calendar",  label:"📅 Calendar" },
   { id:"viral",     label:"🔥 Viral Ideas" },
   { id:"buckets",   label:"🗂️ Buckets" },
@@ -787,6 +754,7 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [lastScan, setLastScan] = useState(null);
   const [notif, setNotif] = useState(null);
+  const [stats, setStats] = useState(loadStats);
 
   const showNotif = useCallback((msg, type="info") => {
     setNotif({msg,type});
@@ -871,7 +839,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
           <div style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${T.accent},${T.amber})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🎒</div>
           <div>
             <div style={{fontSize:14,fontWeight:700,letterSpacing:"-.3px",lineHeight:1}}>@inside_my_backpack</div>
-            <div style={{fontSize:10,color:T.text3,marginTop:1}}>AI Content OS · HSR Layout, Bangalore</div>
+            <div style={{fontSize:10,color:T.text3,marginTop:1}}>Instagram + YouTube Creator Agent · HSR Layout, Bangalore</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -894,6 +862,10 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
       {/* Body */}
       <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
         {view==="dashboard" && <Dashboard calendar={calendar} trends={trends} loading={loading} pendingAlert={pendingAlert} lastScan={lastScan} onScanTrends={fetchTrends} onGenerateCal={generateCalendar} onCheckAlert={checkAlerts} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
+        {view==="agent"     && <AgentSection stats={stats} calendar={calendar} trends={trends}/>}
+        {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
+        {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
+        {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif}/>}
         {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
         {view==="viral"     && <ViralSection showNotif={showNotif}/>}
         {view==="buckets"   && <BucketsSection calendar={calendar}/>}
