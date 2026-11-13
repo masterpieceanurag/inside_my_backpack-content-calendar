@@ -21,6 +21,48 @@ function client() {
   return _client;
 }
 
+// ─── API connection status (drives the header indicator) ─────────────────────
+// state: "checking" | "ok" | "error"
+let _status = { state: "checking", message: "Checking API key…" };
+const _listeners = new Set();
+function setStatus(s) { _status = s; _listeners.forEach((fn) => fn(s)); }
+export function onApiStatus(fn) { _listeners.add(fn); fn(_status); return () => _listeners.delete(fn); }
+
+function friendlyError(e) {
+  if (!process.env.REACT_APP_ANTHROPIC_API_KEY) return "No API key found — add it to the .env file and restart npm start.";
+  if (e instanceof Anthropic.AuthenticationError) return "API key is invalid or expired — create a new key and update .env.";
+  if (e instanceof Anthropic.PermissionDeniedError) return "This key doesn't have permission to use the model.";
+  if (e instanceof Anthropic.RateLimitError) return "Rate limit reached — wait a minute and try again.";
+  if (e instanceof Anthropic.BadRequestError && /credit|billing|balance/i.test(e.message || "")) return "Out of API credit — add funds in Claude Console → Billing.";
+  if (e instanceof Anthropic.APIConnectionError) return "Can't reach the Claude API — check your internet connection.";
+  if (e instanceof Anthropic.InternalServerError) return "Claude API is having trouble — try again shortly.";
+  return e?.message || "Unknown API error.";
+}
+
+function reportOk() { if (_status.state !== "ok") setStatus({ state: "ok", message: "API key working" }); }
+function reportError(e) {
+  // Only connection/auth/billing problems mean the key itself isn't working.
+  const keyProblem = !process.env.REACT_APP_ANTHROPIC_API_KEY
+    || e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError
+    || e instanceof Anthropic.APIConnectionError
+    || (e instanceof Anthropic.BadRequestError && /credit|billing|balance/i.test(e.message || ""));
+  if (keyProblem) setStatus({ state: "error", message: friendlyError(e) });
+  const err = new Error(friendlyError(e));
+  err.cause = e;
+  return err;
+}
+
+// Lightweight key check: fetching model info costs no tokens.
+export async function checkApiKey() {
+  setStatus({ state: "checking", message: "Checking API key…" });
+  try {
+    await client().models.retrieve(MODEL);
+    setStatus({ state: "ok", message: "API key working" });
+  } catch (e) {
+    setStatus({ state: "error", message: friendlyError(e) });
+  }
+}
+
 // Shared request defaults: refusal fallbacks routed server-side.
 const BASE = {
   model: MODEL,
@@ -51,6 +93,14 @@ function parseJSON(raw) {
 
 // One-shot JSON generation (used by calendar, scripts, trends, etc.).
 export async function callClaude(systemPrompt, userMessage, maxTokens = 16000) {
+  try {
+    const result = await _callClaude(systemPrompt, userMessage, maxTokens);
+    reportOk();
+    return result;
+  } catch (e) { throw reportError(e); }
+}
+
+async function _callClaude(systemPrompt, userMessage, maxTokens) {
   const stream = client().beta.messages.stream({
     ...BASE,
     max_tokens: Math.max(maxTokens, 16000),
@@ -67,7 +117,15 @@ export async function callClaude(systemPrompt, userMessage, maxTokens = 16000) {
 // { role: "user" | "assistant", content } in Anthropic MessageParam format.
 // Calls onText(partialText) while streaming. Returns { text, content }, where
 // `content` is the full assistant content to append back into history.
-export async function agentChat(systemPrompt, history, { onText, webSearch = true } = {}) {
+export async function agentChat(systemPrompt, history, opts = {}) {
+  try {
+    const result = await _agentChat(systemPrompt, history, opts);
+    reportOk();
+    return result;
+  } catch (e) { throw reportError(e); }
+}
+
+async function _agentChat(systemPrompt, history, { onText, webSearch = true } = {}) {
   const messages = [...history];
   let collected = [];
   const acc = { text: "" };
