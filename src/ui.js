@@ -1,22 +1,42 @@
 import React from "react";
 
 // ─── TOKENS ──────────────────────────────────────────────────────────────────
+// Golden-hour palette. Colour tokens stay 6-digit hex because components add
+// alpha by appending two hex digits (e.g. color+"20"); surfaces are translucent
+// so the sunset sky (styles.css) glows through.
 export const T = {
-  bg:"#080A0F", surface:"#0D1117", card:"#141820", card2:"#1A2030",
-  border:"#1E2535", border2:"#263040", border3:"#2E3A50",
-  accent:"#F59E0B", amber:"#FBBF24", blue:"#3B82F6", purple:"#8B5CF6",
-  teal:"#14B8A6", green:"#22C55E", red:"#EF4444", pink:"#EC4899",
-  orange:"#FB923C", indigo:"#6366F1",
-  text:"#F0F4FF", text2:"#8899AA", text3:"#445566",
+  bg:"#0D0A12", surface:"rgba(20,16,28,0.72)", card:"rgba(255,255,255,0.045)", card2:"rgba(255,255,255,0.07)",
+  border:"rgba(255,255,255,0.08)", border2:"rgba(255,255,255,0.12)", border3:"rgba(255,255,255,0.18)",
+  accent:"#FF7A45", amber:"#FFC15E", blue:"#5AA9FF", purple:"#9B7BFF",
+  teal:"#2ED3B7", green:"#3DDC97", red:"#FF5A5F", pink:"#FF4F8B",
+  orange:"#FF9F43", indigo:"#7C83FF",
+  text:"#FBF6EF", text2:"#C9BFB5", text3:"#8C8291",
 };
+
+export const SUNSET = "linear-gradient(135deg,#FF7A45 0%,#FF4F8B 55%,#9B7BFF 100%)";
+
+// True on phone-sized screens; follows window resizes and rotation.
+export function useIsMobile(query = "(max-width: 820px)") {
+  const get = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(query).matches : false);
+  const [m, setM] = React.useState(get);
+  React.useEffect(() => {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    const fn = () => setM(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", fn) : mq.addListener(fn);
+    return () => (mq.removeEventListener ? mq.removeEventListener("change", fn) : mq.removeListener(fn));
+  }, [query]);
+  return m;
+}
 
 // ─── TINY UI ATOMS ────────────────────────────────────────────────────────────
 export const Pill = ({ label, color, small, onClick }) => (
   <span onClick={onClick} style={{
-    background:color+"20", color, border:`1px solid ${color}35`,
-    borderRadius:5, padding:small?"1px 7px":"3px 10px",
-    fontSize:small?10:11, fontWeight:600, whiteSpace:"nowrap",
-    cursor:onClick?"pointer":"default", userSelect:"none",
+    background:color+"1F", color, border:`1px solid ${color}38`,
+    borderRadius:99, padding:small?"2px 9px":"5px 13px",
+    fontSize:small?10.5:12, fontWeight:600, whiteSpace:"nowrap",
+    cursor:onClick?"pointer":"default", userSelect:"none", display:"inline-flex", alignItems:"center", gap:5,
+    transition:"background .15s",
   }}>{label}</span>
 );
 
@@ -31,25 +51,42 @@ export const Spinner = ({ size=16, color=T.accent }) => (
 
 export const Btn = ({ children, onClick, color=T.accent, disabled, small, style:sx }) => (
   <button onClick={onClick} disabled={disabled} style={{
-    background:disabled?T.border:color+"20", border:`1px solid ${disabled?T.border2:color+"45"}`,
-    color:disabled?T.text3:color, borderRadius:8,
-    padding:small?"5px 11px":"8px 16px", cursor:disabled?"default":"pointer",
-    fontSize:small?11:12, fontWeight:600, display:"inline-flex", alignItems:"center",
-    gap:6, transition:"all .15s", whiteSpace:"nowrap", ...sx,
+    background:disabled?"rgba(255,255,255,0.05)":color+"1C", border:`1px solid ${disabled?T.border2:color+"48"}`,
+    color:disabled?T.text3:color, borderRadius:99,
+    padding:small?"6px 13px":"9px 18px", cursor:disabled?"default":"pointer",
+    fontSize:small?11.5:13, fontWeight:650, display:"inline-flex", alignItems:"center", justifyContent:"center",
+    gap:7, transition:"all .15s", whiteSpace:"nowrap", fontFamily:"inherit", ...sx,
   }}>{children}</button>
 );
 
-export const Card = ({ children, style:sx }) => (
-  <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,...sx}}>{children}</div>
+// Primary call-to-action with the sunset gradient.
+export const PrimaryBtn = ({ children, onClick, disabled, style:sx, type }) => (
+  <button type={type} className="btn-primary" onClick={onClick} disabled={disabled} style={sx}>{children}</button>
+);
+
+export const Card = ({ children, style:sx, className="" }) => (
+  <div className={`glass ${className}`} style={{padding:18,...sx}}>{children}</div>
 );
 
 export const Label = ({ children }) => (
-  <div style={{fontSize:10,color:T.text3,fontWeight:700,letterSpacing:.6,marginBottom:6,textTransform:"uppercase"}}>{children}</div>
+  <div style={{fontSize:10.5,color:T.text3,fontWeight:700,letterSpacing:1,marginBottom:7,textTransform:"uppercase"}}>{children}</div>
+);
+
+// Page heading used by every screen: icon tile, serif title, subtitle, actions.
+export const PageHeader = ({ icon:Icon, color=T.accent, title, sub, right }) => (
+  <div className="page-head">
+    <div>
+      {Icon && <div className="page-icon" style={{color}}><Icon size={18} strokeWidth={2}/></div>}
+      <h1 className="page-title">{title}</h1>
+      {sub && <div className="page-sub">{sub}</div>}
+    </div>
+    {right && <div className="head-actions">{right}</div>}
+  </div>
 );
 
 export const inputStyle = {
-  width:"100%",background:T.card2,border:`1px solid ${T.border2}`,borderRadius:8,color:T.text,
-  padding:"8px 11px",fontSize:12,outline:"none",fontFamily:"inherit",boxSizing:"border-box",
+  width:"100%",background:"rgba(255,255,255,0.06)",border:`1px solid ${T.border2}`,borderRadius:12,color:T.text,
+  padding:"11px 14px",fontSize:13.5,outline:"none",fontFamily:"inherit",boxSizing:"border-box",
 };
 
 // Minimal, safe markdown → React (headings, bold, bullets, links-as-text).

@@ -22,3 +22,23 @@ The key is bundled into the browser build, so run the app locally or for persona
 > Use the creator-agent to do my weekly review and plan next weekend's shoot.
 
 By default it only reads data. It won't publish, upload or send anything unless you approve that specific action.
+
+## 4. Publish it to use on your phone (Vercel, free)
+When the app is published there's **no API key in the app itself**. The key lives on Vercel's server, and the app asks for a password.
+
+1. Sign up at **vercel.com** with **Continue with GitHub**.
+2. Click **Add New… → Project** and **Import** `inside_my_backpack-content-calendar`.
+3. Before deploying, open **Environment Variables** and add two:
+   | Name | Value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | your full `sk-ant-…` key |
+   | `APP_PASSWORD` | a password you'll type on your phone |
+
+   ⚠️ Do **not** add `REACT_APP_ANTHROPIC_API_KEY` on Vercel. Anything starting with `REACT_APP_` is built into the public app.
+4. Click **Deploy**. After about 2 minutes you get a link like `https://inside-my-backpack.vercel.app`.
+5. On your iPhone, open the link in **Safari**, enter your password, then tap **Share → Add to Home Screen**.
+
+Every change merged into `main` on GitHub re-publishes automatically.
+To change the key or password: Vercel → your project → **Settings → Environment Variables**, edit it, then **Deployments → ⋯ → Redeploy**.
+
+**Running on your computer still works the same way** (`npm start` with your `.env` file). The password screen only appears on the published version.

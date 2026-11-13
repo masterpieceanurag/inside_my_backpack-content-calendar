@@ -1,18 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callClaude, agentChat, SYSTEMS } from "./api";
 import { PROFILE } from "./data";
-import { T, Pill, Spinner, Btn, Card, Label, Markdown, inputStyle, saveStats } from "./ui";
+import { T, Pill, Spinner, Btn, PrimaryBtn, Card, Label, Markdown, PageHeader, inputStyle, saveStats } from "./ui";
+import { BarChart3, Bot, Youtube, Wallet, Rocket, Instagram, Sparkles, Trash2, Send, Lightbulb, Clapperboard, Map, Mail, Save } from "lucide-react";
 
 const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN");
-const Section = ({ title, sub, right, children }) => (
+const Section = ({ icon, color, title, sub, right, children }) => (
   <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <div>
-        <div style={{fontSize:16,fontWeight:700,color:T.text}}>{title}</div>
-        {sub && <div style={{fontSize:11,color:T.text3,marginTop:2}}>{sub}</div>}
-      </div>
-      {right}
-    </div>
+    <PageHeader icon={icon} color={color} title={title} sub={sub} right={right}/>
     {children}
   </div>
 );
@@ -38,9 +33,9 @@ export function StatsSection({ stats, setStats, showNotif }) {
     showNotif("✅ Stats saved — the agent will use these numbers", "success");
   };
   return (
-    <Section title="📈 My Stats" sub="Copy these from Instagram Professional Dashboard & YouTube Studio → Analytics. Saved in this browser only.">
+    <Section icon={BarChart3} color={T.teal} title="My Stats" sub="Copy these from Instagram's Professional Dashboard and YouTube Studio → Analytics. They're saved on this device only.">
       <Card style={{maxWidth:720}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:12,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(210px,100%),1fr))",gap:12,marginBottom:14}}>
           {fields.map(([k,l]) => (
             <div key={k}>
               <Label>{l}</Label>
@@ -50,7 +45,7 @@ export function StatsSection({ stats, setStats, showNotif }) {
         </div>
         <Label>Main goal (next 90 days)</Label>
         <input value={form.goal} onChange={e=>setForm({...form,goal:e.target.value})} style={{...inputStyle,marginBottom:14}}/>
-        <Btn onClick={save} color={T.green}>💾 Save stats</Btn>
+        <Btn onClick={save} color={T.green}><Save size={15}/>Save stats</Btn>
       </Card>
     </Section>
   );
@@ -58,13 +53,13 @@ export function StatsSection({ stats, setStats, showNotif }) {
 
 // ─── CREATOR AGENT (chat) ─────────────────────────────────────────────────────
 const MODES = {
-  growth:   { label:"🚀 Growth Strategist", color:T.accent,
+  growth:   { icon:Rocket, label:"Growth Strategist", color:T.accent,
     brief:"Focus on audience growth: content-market fit, hooks, posting cadence, Reels/Shorts discovery, collabs, community, and profile/channel optimisation." },
-  youtube:  { label:"▶️ YouTube Coach", color:T.red,
+  youtube:  { icon:Youtube, label:"YouTube Coach", color:T.red,
     brief:"Focus on YouTube: video ideas with search demand, titles, thumbnails, retention structure, Shorts→long-form funnel, channel packaging, and getting to YouTube Partner Program eligibility." },
-  instagram:{ label:"📸 Instagram Coach", color:T.pink,
+  instagram:{ icon:Instagram, label:"Instagram Coach", color:T.pink,
     brief:"Focus on Instagram: Reels hooks, carousels for saves/shares, Stories for community, Trial Reels, collabs, bio/highlights, and DM-share-driven reach." },
-  money:    { label:"💰 Monetization Coach", color:T.green,
+  money:    { icon:Wallet, label:"Monetization Coach", color:T.green,
     brief:"Focus on monetization: brand deals and pricing, pitching, affiliate, YouTube Partner Program, Instagram creator monetisation tools, digital products, and local partnerships — with realistic INR estimates and ASCI disclosure rules." },
 };
 
@@ -146,24 +141,26 @@ export function AgentSection({ stats, calendar, trends }) {
 
   return (
     <Section
-      title="🤖 Creator Agent"
+      icon={Bot} color={T.accent}
+      title="Creator Agent"
       sub="Your growth + monetization co-pilot for Instagram & YouTube. Knows your profile, stats, calendar and trends — and searches the web for current info."
-      right={history.length>0 && <Btn small color={T.text3} onClick={()=>{ if(window.confirm("Clear the conversation?")) setHistory([]); }}>🗑 Clear chat</Btn>}
+      right={history.length>0 && <Btn small color={T.text3} onClick={()=>{ if(window.confirm("Clear the conversation?")) setHistory([]); }}><Trash2 size={13}/>Clear chat</Btn>}
     >
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         {Object.entries(MODES).map(([k,m]) => (
-          <Pill key={k} label={m.label} color={mode===k?m.color:T.text3} onClick={()=>setMode(k)}/>
+          <Pill key={k} label={<><m.icon size={14}/>{m.label}</>} color={mode===k?m.color:T.text3} onClick={()=>setMode(k)}/>
         ))}
       </div>
 
-      <Card style={{padding:0,display:"flex",flexDirection:"column",height:"calc(100vh - 260px)",minHeight:420}}>
+      <Card className="chat-card" style={{padding:0,display:"flex",flexDirection:"column",height:"calc(100vh - 290px)",minHeight:440}}>
         <div style={{flex:1,overflowY:"auto",padding:16}}>
           {history.length===0 && !busy && (
             <div>
-              <div style={{fontSize:13,color:T.text2,marginBottom:12}}>Ask anything — or start with one of these:</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
+              <div className="display" style={{fontSize:20,fontWeight:600,color:T.text,marginBottom:4}}>What are we creating today?</div>
+              <div style={{fontSize:13,color:T.text3,marginBottom:14}}>Ask anything, or start with one of these:</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:8}}>
                 {QUICK.map(q => (
-                  <button key={q} onClick={()=>send(q)} style={{textAlign:"left",background:T.card2,border:`1px solid ${T.border2}`,borderRadius:10,padding:"10px 12px",color:T.text,fontSize:12,cursor:"pointer",lineHeight:1.45,fontFamily:"inherit"}}>{q}</button>
+                  <button key={q} onClick={()=>send(q)} style={{textAlign:"left",background:"rgba(255,255,255,0.05)",border:`1px solid ${T.border2}`,borderRadius:14,padding:"12px 14px",color:T.text,fontSize:13,cursor:"pointer",lineHeight:1.45,fontFamily:"inherit",display:"flex",gap:10,alignItems:"flex-start"}}><Sparkles size={15} color={T.amber} style={{flexShrink:0,marginTop:2}}/>{q}</button>
                 ))}
               </div>
               {!stats.igFollowers && !stats.ytSubscribers && (
@@ -173,7 +170,7 @@ export function AgentSection({ stats, calendar, trends }) {
           )}
           {history.map((m, i) => (
             <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:12}}>
-              <div style={{maxWidth:"85%",background:m.role==="user"?T.accent+"18":T.card2,border:`1px solid ${m.role==="user"?T.accent+"40":T.border2}`,borderRadius:12,padding:"10px 14px"}}>
+              <div style={{maxWidth:"85%",background:m.role==="user"?"linear-gradient(135deg, rgba(255,122,69,.22), rgba(255,79,139,.18))":"rgba(255,255,255,0.05)",border:`1px solid ${m.role==="user"?T.accent+"45":T.border2}`,borderRadius:m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"11px 15px"}}>
                 {m.role==="user"
                   ? <div style={{fontSize:13,color:T.text,whiteSpace:"pre-wrap"}}>{m.display}</div>
                   : <Markdown text={m.display}/>}
@@ -194,10 +191,10 @@ export function AgentSection({ stats, calendar, trends }) {
           <textarea
             value={input} onChange={e=>setInput(e.target.value)} rows={2}
             onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }}
-            placeholder={`Ask your ${MODES[mode].label.replace(/^\S+\s/,"")}… (Enter to send, Shift+Enter for new line)`}
+            placeholder={`Ask your ${MODES[mode].label}…`}
             style={{...inputStyle,resize:"none",flex:1}}
           />
-          <Btn onClick={()=>send()} disabled={busy||!input.trim()}>{busy?<Spinner size={12}/>:"Send ➤"}</Btn>
+          <PrimaryBtn onClick={()=>send()} disabled={busy||!input.trim()} style={{alignSelf:"stretch",padding:"0 18px"}}>{busy?<Spinner size={14} color="#fff"/>:<Send size={17}/>}</PrimaryBtn>
         </div>
       </Card>
     </Section>
@@ -255,20 +252,20 @@ Return JSON:
   const copy = (t) => { navigator.clipboard?.writeText(t); showNotif("📋 Copied", "success"); };
 
   return (
-    <Section title="▶️ YouTube Studio" sub="Turn an idea into a full upload package — titles, thumbnails, hook, chapters, SEO, Shorts cut-downs and an Instagram repurpose.">
+    <Section icon={Youtube} color={T.red} title="YouTube Studio" sub="Turn an idea into a full upload package — titles, thumbnails, hook, chapters, SEO, Shorts cut-downs and an Instagram repurpose.">
       <Card style={{marginBottom:14}}>
         <Label>Video idea</Label>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <input value={idea} onChange={e=>setIdea(e.target.value)} onKeyDown={e=>e.key==="Enter"&&generate()}
             placeholder="e.g. Bangalore to Chikmagalur in ₹3,000 — full weekend plan" style={{...inputStyle,flex:1,minWidth:240}}/>
           {["Long-form","Short"].map(k => <Pill key={k} label={k} color={kind===k?T.red:T.text3} onClick={()=>setKind(k)}/>)}
-          <Btn onClick={()=>generate()} disabled={loading||!idea.trim()} color={T.red}>{loading?<><Spinner size={12} color={T.red}/>Building…</>:"🎬 Build package"}</Btn>
-          <Btn onClick={genIdeas} disabled={loadingIdeas} color={T.purple}>{loadingIdeas?<><Spinner size={12} color={T.purple}/>Thinking…</>:"💡 Suggest ideas"}</Btn>
+          <Btn onClick={()=>generate()} disabled={loading||!idea.trim()} color={T.red}>{loading?<><Spinner size={12} color={T.red}/>Building…</>:<><Clapperboard size={15}/>Build package</>}</Btn>
+          <Btn onClick={genIdeas} disabled={loadingIdeas} color={T.purple}>{loadingIdeas?<><Spinner size={12} color={T.purple}/>Thinking…</>:<><Lightbulb size={15}/>Suggest ideas</>}</Btn>
         </div>
       </Card>
 
       {ideas.length>0 && !pkg && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:10,marginBottom:14}}>
           {ideas.map((it,i) => (
             <Card key={i} style={{padding:14}}>
               <div style={{display:"flex",gap:6,marginBottom:6}}>
@@ -285,7 +282,7 @@ Return JSON:
       )}
 
       {pkg && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(320px,100%),1fr))",gap:12}}>
           <Card>
             <Label>Titles</Label>
             {pkg.titles?.map((t,i)=>(
@@ -447,8 +444,8 @@ Return JSON:
   ];
 
   return (
-    <Section title="💰 Monetization Hub" sub="Track eligibility, build a plan, price your collabs and pitch brands. All ₹ figures are AI estimates, not guarantees.">
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12,marginBottom:14}}>
+    <Section icon={Wallet} color={T.green} title="Monetization Hub" sub="Track eligibility, build a plan, price your collabs and pitch brands. All ₹ figures are AI estimates, not guarantees.">
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(300px,100%),1fr))",gap:12,marginBottom:14}}>
         {Object.values(YPP).map(t => (
           <Card key={t.label}>
             <div style={{fontSize:13,fontWeight:700,color:T.text}}>▶️ {t.label}</div>
@@ -477,12 +474,12 @@ Return JSON:
       <Card style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
           <div style={{fontSize:13,fontWeight:700,color:T.text}}>🗺️ 90-day monetization plan</div>
-          <Btn onClick={genPlan} disabled={loading.plan} color={T.green}>{loading.plan?<><Spinner size={12} color={T.green}/>Planning…</>:plan?"🔄 Regenerate":"✨ Build my plan"}</Btn>
+          <Btn onClick={genPlan} disabled={loading.plan} color={T.green}>{loading.plan?<><Spinner size={12} color={T.green}/>Planning…</>:plan?"🔄 Regenerate":<><Map size={15}/>Build my plan</>}</Btn>
         </div>
         {plan && (
           <div style={{marginTop:12}}>
             <div style={{fontSize:12,color:T.amber,marginBottom:12}}>{plan.stage}</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(250px,100%),1fr))",gap:10,marginBottom:14}}>
               {plan.streams?.map((st,i)=>(
                 <div key={i} style={{background:T.card2,border:`1px solid ${T.border2}`,borderRadius:10,padding:12}}>
                   <div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
@@ -508,7 +505,7 @@ Return JSON:
         )}
       </Card>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",gap:12}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(340px,100%),1fr))",gap:12}}>
         {/* Rate card */}
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -545,7 +542,7 @@ Return JSON:
             </select>
           </div>
           <input value={brand.ask} onChange={e=>setBrand({...brand,ask:e.target.value})} placeholder="Optional: product, campaign, or angle" style={{...inputStyle,marginBottom:8}}/>
-          <Btn onClick={genPitch} disabled={loading.pitch||!brand.name.trim()} color={T.blue}>{loading.pitch?<><Spinner size={12} color={T.blue}/>Writing…</>:"✍️ Write pitch"}</Btn>
+          <Btn onClick={genPitch} disabled={loading.pitch||!brand.name.trim()} color={T.blue}>{loading.pitch?<><Spinner size={12} color={T.blue}/>Writing…</>:<><Mail size={15}/>Write pitch</>}</Btn>
           {pitch && (
             <div style={{marginTop:12}}>
               <div style={{display:"flex",justifyContent:"space-between"}}><Label>Email — {pitch.subject}</Label><Btn small onClick={()=>copy(`Subject: ${pitch.subject}\n\n${pitch.email}`)}>Copy</Btn></div>

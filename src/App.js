@@ -1,21 +1,29 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { callClaude, SYSTEMS, onApiStatus, checkApiKey } from "./api";
-import { T, Pill, Spinner, Btn, loadStats } from "./ui";
+import { useState, useEffect, useCallback } from "react";
+import { callClaude, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
+import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats } from "./ui";
+import {
+  Home, Bot, CalendarDays, Youtube, Instagram, Flame, Radar, Layers, ListChecks, Wallet, BarChart3, Github,
+  LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
+  ChevronLeft, ChevronRight, Clock, Lock, Mountain,
+} from "lucide-react";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
-import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate, fmtDateObj } from "./data";
+import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate } from "./data";
 
-const Notif = ({ n }) => n ? (
-  <div style={{
-    position:"fixed",top:16,right:16,zIndex:9000,
-    background:n.type==="error"?T.red+"25":n.type==="success"?T.green+"25":n.type==="alert"?T.red+"30":T.blue+"25",
-    border:`1px solid ${n.type==="error"?T.red:n.type==="success"?T.green:n.type==="alert"?T.red:T.blue}55`,
-    borderRadius:10,padding:"10px 16px",maxWidth:340,fontSize:12,color:T.text,
-    boxShadow:"0 10px 30px rgba(0,0,0,.5)",animation:"_notifIn .25s ease",
-  }}>
-    <style>{`@keyframes _notifIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}`}</style>
-    {n.msg}
-  </div>
-) : null;
+const Notif = ({ n }) => {
+  if (!n) return null;
+  const c = n.type==="error"||n.type==="alert" ? T.red : n.type==="success" ? T.green : T.blue;
+  return (
+    <div role="status" style={{
+      position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",right:14,left:"auto",zIndex:9000,
+      maxWidth:"min(380px, calc(100vw - 28px))",background:"rgba(24,19,32,0.94)",border:`1px solid ${c}55`,
+      borderLeft:`3px solid ${c}`,borderRadius:14,padding:"12px 16px",fontSize:13,color:T.text,lineHeight:1.45,
+      boxShadow:"0 16px 40px rgba(0,0,0,.5)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",animation:"_notifIn .25s ease",
+    }}>
+      <style>{`@keyframes _notifIn{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}`}</style>
+      {n.msg}
+    </div>
+  );
+};
 
 // ─── SCRIPT MODAL ─────────────────────────────────────────────────────────────
 function ScriptModal({ day, onClose, onSave }) {
@@ -46,8 +54,8 @@ function ScriptModal({ day, onClose, onSave }) {
   const fmtInfo = FORMATS[day.format] || FORMATS["Reel"];
 
   return (
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:T.card,border:`1px solid ${T.border3}`,borderRadius:16,width:"100%",maxWidth:680,maxHeight:"88vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div className="modal-backdrop" onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(5,4,8,.7)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div className="modal-card" onClick={e=>e.stopPropagation()} style={{background:"rgba(24,19,32,0.97)",border:`1px solid ${T.border3}`,borderRadius:16,width:"100%",maxWidth:680,maxHeight:"88vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Header */}
         <div style={{padding:"16px 20px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexShrink:0}}>
           <div>
@@ -57,7 +65,7 @@ function ScriptModal({ day, onClose, onSave }) {
               <Pill label={`⏰ ${day.postTime}`} color={T.text3} small/>
               {day.trendLocked && <Pill label="🔥 Trend" color={T.red} small/>}
             </div>
-            <div style={{fontSize:15,fontWeight:700,color:T.text,lineHeight:1.3}}>{day.title}</div>
+            <div className="display" style={{fontSize:19,fontWeight:600,color:T.text,lineHeight:1.25}}>{day.title}</div>
             <div style={{fontSize:11,color:T.text3,marginTop:3}}>{fmtDate(day.date)}</div>
           </div>
           <button onClick={onClose} style={{background:"transparent",border:`1px solid ${T.border}`,color:T.text2,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
@@ -159,8 +167,8 @@ function DayModal({ day, onClose, onUpdate }) {
 
   return (
     <>
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:T.card,border:`1px solid ${T.border3}`,borderRadius:16,width:"100%",maxWidth:540,maxHeight:"85vh",overflowY:"auto",padding:22,position:"relative"}}>
+    <div className="modal-backdrop" onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(5,4,8,.7)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div className="modal-card" onClick={e=>e.stopPropagation()} style={{background:"rgba(24,19,32,0.97)",border:`1px solid ${T.border3}`,borderRadius:22,width:"100%",maxWidth:540,maxHeight:"85vh",overflowY:"auto",padding:22,position:"relative"}}>
         <button onClick={onClose} style={{position:"absolute",top:14,right:14,background:"transparent",border:`1px solid ${T.border}`,color:T.text2,borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:13}}>✕</button>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
           <Pill label={`${fmtInfo.icon} ${day.format}`} color={fmtInfo.color}/>
@@ -188,7 +196,7 @@ function DayModal({ day, onClose, onUpdate }) {
           </div>
         ) : (
           <div>
-            <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:10,lineHeight:1.4}}>{day.title}</div>
+            <div className="display" style={{fontSize:22,fontWeight:600,color:T.text,marginBottom:12,lineHeight:1.25}}>{day.title}</div>
             {[["🔥 HOOK",day.hook,T.accent,true],["📣 CAPTION",day.caption||"(tap Script to generate)",T.text,false],["💬 CTA",day.cta||"(tap Script to generate)",T.green,false]].map(([l,v,c,italic])=>(
               <div key={l} style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:T.text3,fontWeight:600,marginBottom:3,letterSpacing:.5}}>{l}</div>
@@ -252,14 +260,10 @@ Return JSON array of 12 objects:
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700,color:T.text}}>🔥 Viral Content Suggestions</div>
-          <div style={{fontSize:11,color:T.text3,marginTop:2}}>Trending formats across Instagram, YouTube & Facebook — adapted for your niche</div>
-        </div>
-        <Btn onClick={()=>fetch(platform)} disabled={loading} color={T.accent}>
-          {loading?<><Spinner size={12}/>Loading…</>:"🔄 Refresh"}
-        </Btn>
+      <div>
+        <PageHeader icon={Flame} color={T.orange} title="Viral Ideas"
+          sub="Formats taking off on Reels, Shorts and Facebook right now, adapted to your Bangalore travel, style and food niche."
+          right={<Btn onClick={()=>fetch(platform)} disabled={loading} color={T.accent}>{loading?<><Spinner size={12}/>Loading…</>:<><RefreshCw size={14}/>Refresh</>}</Btn>}/>
       </div>
 
       {/* Platform filter */}
@@ -271,9 +275,9 @@ Return JSON array of 12 objects:
       </div>
 
       {loading ? (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
           {[...Array(6)].map((_,i)=>(
-            <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,height:180,animation:"_pulse 1.5s ease infinite",animationDelay:`${i*.1}s`}}>
+            <div key={i} className="glass" style={{padding:16,height:180,animation:"_pulse 1.5s ease infinite",animationDelay:`${i*.1}s`}}>
               <style>{`@keyframes _pulse{0%,100%{opacity:.4}50%{opacity:.8}}`}</style>
             </div>
           ))}
@@ -284,11 +288,11 @@ Return JSON array of 12 objects:
           <div>No content loaded. Hit Refresh.</div>
         </div>
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
           {filtered.map((item, i) => {
             const pc = platColor[item.platform]||T.accent;
             return (
-              <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,transition:"border-color .15s",cursor:"default"}}>
+              <div key={i} className="glass" style={{padding:18,transition:"border-color .15s",cursor:"default"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     <Pill label={`${platIcon[item.platform]||"🌐"} ${item.platform}`} color={pc} small/>
@@ -299,7 +303,7 @@ Return JSON array of 12 objects:
                     🔥 {item.viralScore}
                   </div>
                 </div>
-                <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:5,lineHeight:1.3}}>{item.title}</div>
+                <div className="display" style={{fontSize:17,fontWeight:600,color:T.text,marginBottom:6,lineHeight:1.25}}>{item.title}</div>
                 <div style={{fontSize:11,color:T.text2,lineHeight:1.5,marginBottom:8}}>{item.description}</div>
                 <div style={{fontSize:11,color:pc,padding:"6px 9px",background:pc+"10",borderRadius:6,borderLeft:`2px solid ${pc}`,marginBottom:8,lineHeight:1.4}}>
                   🎯 {item.adaptation}
@@ -322,9 +326,8 @@ function BucketsSection({ calendar }) {
   const [selected, setSelected] = useState(null);
   return (
     <div>
-      <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>🗂️ Content Buckets</div>
-      <div style={{fontSize:11,color:T.text3,marginBottom:16}}>6 buckets built for your lifestyle — working professional, weekend driver, home cook, Bangalore local.</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+      <PageHeader icon={Layers} color={T.purple} title="Content Buckets" sub="Six themes built around your life: weekday professional, weekend driver, home cook and Bangalore local. Tap a bucket to see its posts."/>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:12}}>
         {PROFILE.buckets.map(b => {
           const posts = calendar.filter(d=>d.bucket===b);
           const color = BUCKET_COLORS[b]||T.accent;
@@ -332,14 +335,14 @@ function BucketsSection({ calendar }) {
           posts.forEach(p=>{ fc[p.format]=(fc[p.format]||0)+1; });
           const isOpen = selected===b;
           return (
-            <div key={b} onClick={()=>setSelected(isOpen?null:b)} style={{background:T.card,border:`1.5px solid ${isOpen?color:T.border}`,borderRadius:12,overflow:"hidden",cursor:"pointer",transition:"all .15s"}}>
-              <div style={{padding:"14px 16px",borderLeft:`4px solid ${color}`}}>
+            <div key={b} onClick={()=>setSelected(isOpen?null:b)} className="glass" style={{border:`1px solid ${isOpen?color+"80":T.border}`,overflow:"hidden",cursor:"pointer",transition:"all .15s",background:`linear-gradient(160deg, ${color}14, rgba(255,255,255,0.03) 60%)`}}>
+              <div style={{padding:"16px 18px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div>
-                    <div style={{fontSize:14,fontWeight:700,color,marginBottom:3}}>{b}</div>
+                    <div className="display" style={{fontSize:18,fontWeight:600,color:T.text,marginBottom:3}}>{b}</div>
                     <div style={{fontSize:11,color:T.text3}}>{posts.length} posts this month</div>
                   </div>
-                  <div style={{fontSize:18,fontWeight:700,color}}>{posts.length}</div>
+                  <div className="display" style={{fontSize:28,fontWeight:600,color,lineHeight:1}}>{posts.length}</div>
                 </div>
                 <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
                   {Object.entries(fc).map(([f,c])=>(
@@ -392,9 +395,8 @@ function TrackerSection({ calendar }) {
 
   return (
     <div>
-      <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>📊 Production Tracker</div>
-      <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Click checkboxes to advance phases. Fill in metrics after posting.</div>
-      <div style={{overflowX:"auto"}}>
+      <PageHeader icon={ListChecks} color={T.teal} title="Production Tracker" sub="Tap a box to move a post through script, shoot, edit, caption and post. Add the numbers once it's live. Swipe sideways on a phone."/>
+      <div className="glass" style={{overflowX:"auto",padding:0}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:900}}>
           <thead>
             <tr style={{background:T.surface}}>
@@ -458,21 +460,48 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700,color:T.text}}>📅 Content Calendar</div>
-          <div style={{fontSize:11,color:T.text3,marginTop:2}}>Click any day to view post brief + generate/edit script</div>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <Btn onClick={()=>setMonth(m=>{const d=new Date(m.year,m.month-1,1);return{year:d.getFullYear(),month:d.getMonth()}})} color={T.text3} small>← Prev</Btn>
-          <span style={{fontSize:13,fontWeight:600,color:T.text,minWidth:120,textAlign:"center"}}>{MONTH_NAMES[month.month]} {month.year}</span>
-          <Btn onClick={()=>setMonth(m=>{const d=new Date(m.year,m.month+1,1);return{year:d.getFullYear(),month:d.getMonth()}})} color={T.text3} small>Next →</Btn>
-          <Btn onClick={onGenerate} disabled={loadingCal} color={T.accent}>
-            {loadingCal?<><Spinner size={11}/>Generating…</>:"🤖 AI Generate"}
-          </Btn>
-        </div>
+      <div>
+        <PageHeader icon={CalendarDays} color={T.amber} title="Content Calendar" sub="Tap any day for the post brief, then generate or edit its script."
+          right={<>
+            <div style={{display:"flex",alignItems:"center",gap:4}} className="glass">
+              <button aria-label="Previous month" onClick={()=>setMonth(m=>{const d=new Date(m.year,m.month-1,1);return{year:d.getFullYear(),month:d.getMonth()}})} style={{background:"transparent",border:0,color:T.text2,padding:"8px 10px",cursor:"pointer",display:"flex"}}><ChevronLeft size={18}/></button>
+              <span className="display" style={{fontSize:16,fontWeight:600,color:T.text,minWidth:130,textAlign:"center"}}>{MONTH_NAMES[month.month]} {month.year}</span>
+              <button aria-label="Next month" onClick={()=>setMonth(m=>{const d=new Date(m.year,m.month+1,1);return{year:d.getFullYear(),month:d.getMonth()}})} style={{background:"transparent",border:0,color:T.text2,padding:"8px 10px",cursor:"pointer",display:"flex"}}><ChevronRight size={18}/></button>
+            </div>
+            <PrimaryBtn onClick={onGenerate} disabled={loadingCal}>{loadingCal?<><Spinner size={12} color="#fff"/>Generating…</>:<><Wand2 size={15}/>AI Generate</>}</PrimaryBtn>
+          </>}/>
       </div>
 
+      {/* Phone: agenda list */}
+      <div className="calendar-list">
+        {calendar.filter(d=>{const x=new Date(d.date);return x.getMonth()===month.month&&x.getFullYear()===month.year;}).sort((a,b)=>new Date(a.date)-new Date(b.date)).map(entry=>{
+          const date=new Date(entry.date); const fi=FORMATS[entry.format]; const c=BUCKET_COLORS[entry.bucket]||T.accent;
+          const isToday=date.toDateString()===new Date().toDateString();
+          return (
+            <button key={entry.id} onClick={()=>onDayClick(entry)} className="glass" style={{display:"flex",gap:14,alignItems:"center",padding:"12px 14px",textAlign:"left",cursor:"pointer",color:T.text,fontFamily:"inherit",borderColor:isToday?T.accent+"80":undefined}}>
+              <div style={{width:48,flexShrink:0,textAlign:"center",borderRight:`1px solid ${T.border}`,paddingRight:12}}>
+                <div style={{fontSize:10,color:T.text3,fontWeight:700,letterSpacing:1}}>{date.toLocaleDateString("en-IN",{weekday:"short"}).toUpperCase()}</div>
+                <div className="display" style={{fontSize:24,fontWeight:600,color:isToday?T.accent:T.text,lineHeight:1.1}}>{date.getDate()}</div>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",gap:6,marginBottom:5,flexWrap:"wrap"}}>
+                  <Pill small label={`${fi?.icon||""} ${entry.format}`} color={fi?.color||T.accent}/>
+                  {entry.ready&&<Pill small label="Ready" color={T.green}/>}
+                  {entry.trendLocked&&<Pill small label="Trend" color={T.red}/>}
+                </div>
+                <div style={{fontSize:14,fontWeight:600,lineHeight:1.35,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{entry.title}</div>
+                <div style={{fontSize:11.5,color:T.text3,marginTop:3,display:"flex",gap:10}}><span style={{color:c}}>● {entry.bucket}</span><span><Clock size={11} style={{verticalAlign:-1}}/> {entry.postTime}</span></div>
+              </div>
+              <ChevronRight size={18} color={T.text3}/>
+            </button>
+          );
+        })}
+        {calendar.filter(d=>{const x=new Date(d.date);return x.getMonth()===month.month&&x.getFullYear()===month.year;}).length===0 && (
+          <div className="glass" style={{padding:24,textAlign:"center",color:T.text3,fontSize:13}}>No posts planned this month. Use the arrows to switch month, or tap AI Generate.</div>
+        )}
+      </div>
+
+      <div className="calendar-grid">
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:5}}>
         {DOW.map(d=><div key={d} style={{textAlign:"center",fontSize:9,color:T.text3,fontWeight:600,letterSpacing:.8,padding:"3px 0"}}>{d}</div>)}
       </div>
@@ -484,12 +513,12 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
           const fi = entry?FORMATS[entry.format]:null;
           return (
             <div key={idx} onClick={()=>entry&&onDayClick(entry)} style={{
-              background:entry?.trendLocked?T.red+"18":entry?.aiGenerated?T.blue+"10":T.card,
-              border:`1.5px solid ${isToday?T.accent:entry?.trendLocked?T.red+"50":T.border}`,
-              borderRadius:8,padding:"6px 7px 7px",minHeight:76,cursor:entry?"pointer":"default",transition:"all .12s",
+              background:entry?.trendLocked?T.red+"18":entry?(BUCKET_COLORS[entry.bucket]||T.accent)+"10":"rgba(255,255,255,0.025)",
+              border:`1px solid ${isToday?T.accent:entry?.trendLocked?T.red+"50":T.border}`,
+              borderRadius:12,padding:"8px 9px 9px",minHeight:96,cursor:entry?"pointer":"default",transition:"all .12s",
             }}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                <span style={{fontSize:10,color:isToday?T.accent:T.text3,fontWeight:isToday?700:400}}>{date.getDate()}</span>
+                <span className="display" style={{fontSize:15,color:isToday?T.accent:T.text2,fontWeight:600}}>{date.getDate()}</span>
                 <div style={{display:"flex",gap:2}}>
                   {entry?.script&&<span style={{fontSize:8,color:T.teal}}>📝</span>}
                   {entry?.trendLocked&&<span style={{fontSize:8,color:T.red}}>🔥</span>}
@@ -497,16 +526,17 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
                 </div>
               </div>
               {entry&&<>
-                <div style={{fontSize:9,color:fi?.color||T.text3,fontWeight:600,marginBottom:1}}>{fi?.icon} {entry.format}</div>
-                <div style={{fontSize:9,color:T.text2,lineHeight:1.25}}>{entry.title?.slice(0,36)}{entry.title?.length>36?"…":""}</div>
-                <div style={{fontSize:8,color:T.text3,marginTop:2}}>⏰ {entry.postTime}</div>
+                <div style={{fontSize:10,color:fi?.color||T.text3,fontWeight:700,marginBottom:2}}>{fi?.icon} {entry.format}</div>
+                <div style={{fontSize:11,color:T.text,lineHeight:1.3}}>{entry.title?.slice(0,40)}{entry.title?.length>40?"…":""}</div>
+                <div style={{fontSize:9.5,color:T.text3,marginTop:3}}>{entry.postTime}</div>
                 {entry.ready&&<div style={{fontSize:7,color:T.green,fontWeight:700,marginTop:1}}>✅ READY</div>}
               </>}
             </div>
           );
         })}
       </div>
-      <div style={{display:"flex",gap:14,marginTop:10,flexWrap:"wrap"}}>
+      </div>
+      <div style={{display:"flex",gap:14,marginTop:12,flexWrap:"wrap"}}>
         {[["🔥 Trend-locked",T.red],["🤖 AI-generated",T.blue],["📝 Script ready",T.teal],["✅ Ready",T.green]].map(([l,c])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
             <div style={{width:7,height:7,borderRadius:2,background:c}}/>
@@ -522,18 +552,13 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
 function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAccept, onDismiss }) {
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700,color:T.text}}>🌐 Live Trend Monitor</div>
-          <div style={{fontSize:11,color:T.text3,marginTop:2}}>{lastScan?`Last scan: ${lastScan.toLocaleTimeString("en-IN")}`:"Not yet scanned — hit Scan to load live trends"}</div>
-        </div>
-        <Btn onClick={onScan} disabled={loading} color={T.blue}>
-          {loading?<><Spinner size={12} color={T.blue}/>Scanning…</>:"🔄 Scan Trends"}
-        </Btn>
+      <div>
+        <PageHeader icon={Radar} color={T.blue} title="Trend Radar" sub={lastScan?`Last scan ${lastScan.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}. Trends worth jumping on this week.`:"Scan to pull this month's travel, food and style trends for Bangalore creators."}
+          right={<PrimaryBtn onClick={onScan} disabled={loading}>{loading?<><Spinner size={12} color="#fff"/>Scanning…</>:<><Radar size={15}/>Scan Trends</>}</PrimaryBtn>}/>
       </div>
 
       {pendingAlert && (
-        <div style={{background:T.card,border:`1px solid ${T.red}50`,borderRadius:12,padding:16,marginBottom:16,animation:"_alertPulse 2s ease infinite"}}>
+        <div className="glass" style={{borderColor:T.red+"60",padding:16,marginBottom:16,animation:"_alertPulse 2s ease infinite"}}>
           <style>{`@keyframes _alertPulse{0%,100%{box-shadow:0 0 0 0 ${T.red}30}50%{box-shadow:0 0 0 8px transparent}}`}</style>
           <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:8}}>🚨 Breaking Trend — Action Required</div>
           <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{pendingAlert.title}</div>
@@ -548,22 +573,22 @@ function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAcce
 
       {trends.length===0&&!loading ? (
         <div style={{textAlign:"center",padding:"48px 0",color:T.text3}}>
-          <div style={{fontSize:32,marginBottom:10}}>📡</div>
-          <div style={{fontSize:14,color:T.text2,marginBottom:4}}>No trends loaded yet</div>
+          <Radar size={36} color={T.text3} style={{marginBottom:10}}/>
+          <div className="display" style={{fontSize:18,color:T.text2,marginBottom:4}}>No trends loaded yet</div>
           <div style={{fontSize:12}}>Click "Scan Trends" to pull live Instagram & social media trends</div>
         </div>
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:10}}>
           {trends.map((t,i)=>{
             const strengthColor = t.strength==="High"?T.green:t.strength==="Medium"?T.accent:T.text3;
             return (
-              <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
+              <div key={i} className="glass" style={{padding:16}}>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
                   <Pill label={t.platform||"Instagram"} color={T.blue} small/>
                   <Pill label={t.category||"Trending"} color={T.purple} small/>
                   <Pill label={`${t.strength==="High"?"🔥":t.strength==="Medium"?"📈":"💡"} ${t.strength}`} color={strengthColor} small/>
                 </div>
-                <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{t.title}</div>
+                <div className="display" style={{fontSize:17,fontWeight:600,color:T.text,marginBottom:6,lineHeight:1.25}}>{t.title}</div>
                 <div style={{fontSize:11,color:T.text2,lineHeight:1.5,marginBottom:8}}>{t.description}</div>
                 {t.contentIdea&&<div style={{fontSize:11,color:T.teal,padding:"6px 9px",background:T.teal+"10",borderRadius:6,borderLeft:`2px solid ${T.teal}`}}>💡 {t.contentIdea}</div>}
               </div>
@@ -576,63 +601,151 @@ function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAcce
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ calendar, trends, loading, pendingAlert, lastScan, onScanTrends, onGenerateCal, onCheckAlert, onAccept, onDismiss }) {
+const fmtNum = (n) => { n = Number(n)||0; return n>=100000?`${(n/100000).toFixed(1)}L`:n>=1000?`${(n/1000).toFixed(n>=10000?0:1)}K`:String(n); };
+
+function Mountains() {
+  // Layered ridgelines with a low sun: the "weekend drive" mood.
+  return (
+    <svg className="hero-mountains" viewBox="0 0 420 180" aria-hidden="true">
+      <defs>
+        <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFD27A"/><stop offset="1" stopColor="#FF7A45"/></linearGradient>
+        <linearGradient id="r1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF4F8B" stopOpacity=".55"/><stop offset="1" stopColor="#FF4F8B" stopOpacity="0"/></linearGradient>
+        <linearGradient id="r2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#9B7BFF" stopOpacity=".7"/><stop offset="1" stopColor="#1A1424" stopOpacity=".2"/></linearGradient>
+      </defs>
+      <circle cx="300" cy="78" r="34" fill="url(#sun)" opacity=".9"/>
+      <path d="M0 150 L60 92 L105 128 L160 70 L215 120 L262 86 L320 132 L372 96 L420 124 L420 180 L0 180Z" fill="url(#r1)"/>
+      <path d="M0 168 L48 132 L92 156 L150 112 L205 152 L250 124 L300 160 L350 130 L420 158 L420 180 L0 180Z" fill="url(#r2)"/>
+      <path d="M0 180 C80 168 140 176 210 170 C280 164 340 174 420 166 L420 180Z" fill="#0D0A12" opacity=".8"/>
+    </svg>
+  );
+}
+
+function Dashboard({ calendar, trends, stats, loading, pendingAlert, lastScan, onScanTrends, onGenerateCal, onCheckAlert, onAccept, onDismiss, go }) {
   const readyCount = calendar.filter(d=>d.ready).length;
   const scriptCount = calendar.filter(d=>d.script).length;
   const trendCount = calendar.filter(d=>d.trendLocked).length;
+  const hour = new Date().getHours();
+  const greeting = hour<5?"Late night edit?":hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = calendar.filter(d=>new Date(d.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,3);
+  const hasStats = stats && (stats.igFollowers || stats.ytSubscribers);
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      {/* Hero */}
+      <section className="hero">
+        <Mountains/>
+        <div style={{position:"relative",maxWidth:560}}>
+          <div style={{fontSize:12,fontWeight:700,letterSpacing:1.4,textTransform:"uppercase",color:T.amber,display:"flex",alignItems:"center",gap:7}}><Mountain size={14}/>{greeting}, creator</div>
+          <h1 className="hero-title">Where does the <span className="gradient-text">next story</span> start?</h1>
+          <div style={{fontSize:14,color:T.text2,lineHeight:1.55,marginBottom:18}}>Weekend road trips, café corners and style on the road. Plan it, script it and grow it here.</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <PrimaryBtn onClick={()=>go("agent")}><Sparkles size={15}/>Ask your agent</PrimaryBtn>
+            <Btn onClick={()=>go("calendar")} color={T.text}><CalendarDays size={15}/>Plan the week</Btn>
+            <Btn onClick={()=>go("youtube")} color={T.text}><Youtube size={15}/>YouTube package</Btn>
+          </div>
+        </div>
+      </section>
+
+      {/* Platform snapshot */}
+      <div className="grid-2" style={{marginBottom:14}}>
+        <button onClick={()=>go("stats")} className="glass platform-ig" style={{padding:18,textAlign:"left",color:T.text,cursor:"pointer",fontFamily:"inherit"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:"#FFB3CF",letterSpacing:.5}}><Instagram size={16}/>INSTAGRAM</div>
+          {hasStats ? (
+            <div style={{display:"flex",gap:22,marginTop:12,flexWrap:"wrap"}}>
+              <div><div className="stat-value">{fmtNum(stats.igFollowers)}</div><div className="stat-label">Followers</div></div>
+              <div><div className="stat-value">{fmtNum(stats.igAvgReelViews)}</div><div className="stat-label">Avg Reel views</div></div>
+              <div><div className="stat-value">{stats.igEngagementRate||0}%</div><div className="stat-label">Engagement</div></div>
+            </div>
+          ) : <div style={{fontSize:13,color:T.text2,marginTop:10}}>Add your numbers in <strong>My Stats</strong> to see them here →</div>}
+        </button>
+        <button onClick={()=>go("monetize")} className="glass platform-yt" style={{padding:18,textAlign:"left",color:T.text,cursor:"pointer",fontFamily:"inherit"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:"#FF9A9D",letterSpacing:.5}}><Youtube size={16}/>YOUTUBE</div>
+          {hasStats ? (
+            <div style={{display:"flex",gap:22,marginTop:12,flexWrap:"wrap"}}>
+              <div><div className="stat-value">{fmtNum(stats.ytSubscribers)}</div><div className="stat-label">Subscribers</div></div>
+              <div><div className="stat-value">{fmtNum(stats.ytWatchHours12mo)}</div><div className="stat-label">Watch hrs / 4K</div></div>
+              <div><div className="stat-value">{fmtNum(stats.ytShortsViews90d)}</div><div className="stat-label">Shorts views 90d</div></div>
+            </div>
+          ) : <div style={{fontSize:13,color:T.text2,marginTop:10}}>Track your Partner Program progress in <strong>Monetize</strong> →</div>}
+        </button>
+      </div>
+
+      {/* Content pipeline */}
+      <div className="grid-4" style={{marginBottom:14}}>
         {[
-          {l:"Total Posts",v:calendar.length,c:T.accent,i:"📅"},
-          {l:"Scripts Ready",v:scriptCount,c:T.teal,i:"📝"},
-          {l:"Ready to Post",v:readyCount,c:T.green,i:"✅"},
-          {l:"Trend-Locked",v:trendCount,c:T.red,i:"🔥"},
+          {l:"Posts planned",v:calendar.length,c:T.amber,I:CalendarDays},
+          {l:"Scripts ready",v:scriptCount,c:T.teal,I:FileText},
+          {l:"Ready to post",v:readyCount,c:T.green,I:CheckCircle2},
+          {l:"Trend-locked",v:trendCount,c:T.pink,I:Flame},
         ].map(s=>(
-          <div key={s.l} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 16px"}}>
-            <div style={{fontSize:22,marginBottom:5}}>{s.i}</div>
-            <div style={{fontSize:28,fontWeight:700,color:s.c,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{s.v}</div>
-            <div style={{fontSize:10,color:T.text3,fontWeight:500,marginTop:4,letterSpacing:.5}}>{s.l.toUpperCase()}</div>
+          <div key={s.l} className="glass stat-tile">
+            <div className="stat-icon" style={{background:s.c+"1F",color:s.c}}><s.I size={18}/></div>
+            <div className="stat-value" style={{color:T.text}}>{s.v}</div>
+            <div className="stat-label">{s.l}</div>
           </div>
         ))}
       </div>
 
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:18,marginBottom:16}}>
-        <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:12}}>🤖 AI Engine</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-          {[
-            {i:"🌐",l:"Scan Trends",s:lastScan?`Last: ${lastScan.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`:"Never scanned",c:T.blue,fn:onScanTrends,ld:loading.trends},
-            {i:"📅",l:"Generate Calendar",s:trends.length>0?`${trends.length} trends loaded`:"Load trends first",c:T.accent,fn:onGenerateCal,ld:loading.calendar},
-            {i:"🚨",l:"Check Breaking Trends",s:pendingAlert?"1 alert pending!":"Scan for breaking trends",c:T.red,fn:onCheckAlert,ld:loading.alert,pulse:!!pendingAlert},
-          ].map(a=>(
-            <button key={a.l} onClick={a.fn} disabled={a.ld} style={{
-              background:a.ld?T.border:a.c+"15",border:`1px solid ${a.c}${a.ld?"20":"40"}`,
-              borderRadius:10,padding:"12px",cursor:a.ld?"default":"pointer",textAlign:"left",
-              animation:a.pulse?"_btnPulse 1.5s ease infinite":"none",
-            }}>
-              <style>{`@keyframes _btnPulse{0%,100%{border-color:${a.c}40}50%{border-color:${a.c}}}`}</style>
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:20}}>{a.i}</span>
-                {a.ld&&<Spinner size={14} color={a.c}/>}
+      <div className="grid-2" style={{marginBottom:14,alignItems:"start"}}>
+        {/* Up next */}
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div className="display" style={{fontSize:19,fontWeight:600}}>Up next</div>
+            <Btn small color={T.text2} onClick={()=>go("calendar")}>Full calendar<ChevronRight size={13}/></Btn>
+          </div>
+          {upcoming.length===0 ? <div style={{fontSize:13,color:T.text3}}>Nothing scheduled. Tap AI Generate on the calendar to plan 30 days.</div> :
+            upcoming.map(d=>{ const fi=FORMATS[d.format]; const c=BUCKET_COLORS[d.bucket]||T.accent; const dt=new Date(d.date); return (
+              <div key={d.id} style={{display:"flex",gap:12,alignItems:"center",padding:"10px 0",borderTop:`1px solid ${T.border}`}}>
+                <div style={{width:44,textAlign:"center",flexShrink:0}}>
+                  <div style={{fontSize:10,color:T.text3,fontWeight:700}}>{dt.toLocaleDateString("en-IN",{month:"short"}).toUpperCase()}</div>
+                  <div className="display" style={{fontSize:22,fontWeight:600,lineHeight:1}}>{dt.getDate()}</div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13.5,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.title}</div>
+                  <div style={{fontSize:11.5,color:T.text3,marginTop:2}}><span style={{color:fi?.color}}>{fi?.icon} {d.format}</span> · <span style={{color:c}}>{d.bucket}</span></div>
+                </div>
               </div>
-              <div style={{fontSize:12,fontWeight:600,color:a.ld?T.text3:a.c,marginTop:6}}>{a.l}</div>
-              <div style={{fontSize:10,color:T.text3,marginTop:2}}>{a.s}</div>
-            </button>
-          ))}
-        </div>
+            );})}
+        </Card>
+
+        {/* AI engine */}
+        <Card>
+          <div className="display" style={{fontSize:19,fontWeight:600,marginBottom:12}}>AI engine</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {[
+              {I:Radar,l:"Scan trends",s:lastScan?`Last scan ${lastScan.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}`:"See what's trending this month",c:T.blue,fn:onScanTrends,ld:loading.trends},
+              {I:Wand2,l:"Generate 30-day calendar",s:trends.length>0?`Uses ${trends.length} scanned trends`:"Tip: scan trends first",c:T.accent,fn:onGenerateCal,ld:loading.calendar},
+              {I:Siren,l:"Check breaking trends",s:pendingAlert?"1 alert waiting":"Catch a sudden trend early",c:T.pink,fn:onCheckAlert,ld:loading.alert,pulse:!!pendingAlert},
+            ].map(a=>(
+              <button key={a.l} onClick={a.fn} disabled={a.ld} style={{
+                display:"flex",alignItems:"center",gap:12,background:a.c+"12",border:`1px solid ${a.c}35`,
+                borderRadius:14,padding:"12px 14px",cursor:a.ld?"default":"pointer",textAlign:"left",color:T.text,fontFamily:"inherit",
+                animation:a.pulse?"_btnPulse 1.5s ease infinite":"none",
+              }}>
+                <style>{`@keyframes _btnPulse{0%,100%{border-color:${a.c}40}50%{border-color:${a.c}}}`}</style>
+                <div className="stat-icon" style={{background:a.c+"22",color:a.c,margin:0,flexShrink:0}}>{a.ld?<Spinner size={16} color={a.c}/>:<a.I size={18}/>}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13.5,fontWeight:650}}>{a.l}</div>
+                  <div style={{fontSize:11.5,color:T.text3,marginTop:2}}>{a.s}</div>
+                </div>
+                <ChevronRight size={16} color={T.text3}/>
+              </button>
+            ))}
+          </div>
+        </Card>
       </div>
 
       {pendingAlert&&(
-        <div style={{background:T.card,border:`1px solid ${T.red}40`,borderRadius:12,padding:16}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:8}}>🚨 Breaking Trend Alert</div>
-          <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{pendingAlert.title}</div>
-          <div style={{fontSize:11,color:T.text2,marginBottom:10}}>{pendingAlert.description}</div>
-          <div style={{display:"flex",gap:8}}>
-            <Btn onClick={onAccept} color={T.green} small>✅ Update Calendar</Btn>
-            <Btn onClick={onDismiss} color={T.red} small>✕ Dismiss</Btn>
+        <Card style={{borderColor:T.red+"55"}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:8,display:"flex",alignItems:"center",gap:6}}><Siren size={14}/>BREAKING TREND</div>
+          <div className="display" style={{fontSize:18,fontWeight:600,color:T.text,marginBottom:4}}>{pendingAlert.title}</div>
+          <div style={{fontSize:13,color:T.text2,marginBottom:12}}>{pendingAlert.description}</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <Btn onClick={onAccept} color={T.green} small><CheckCircle2 size={13}/>Add to calendar</Btn>
+            <Btn onClick={onDismiss} color={T.text3} small><X size={13}/>Dismiss</Btn>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -686,10 +799,9 @@ function GitHubSection({ calendar, trends }) {
 
   return (
     <div>
-      <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>🐙 GitHub Sync</div>
-      <div style={{fontSize:11,color:T.text3,marginBottom:16}}>Push your calendar, scripts, and trends data to <strong style={{color:T.text}}>masterpieceanurag/inside_my_backpack-content-calendar</strong></div>
+      <PageHeader icon={Github} color={T.text2} title="GitHub Sync" sub="Back up your calendar, scripts and trends to your GitHub repository."/>
 
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:18,marginBottom:14}}>
+      <div className="glass" style={{padding:18,marginBottom:14}}>
         <div style={{fontSize:12,color:T.text2,marginBottom:10}}>
           To push to GitHub, you need a <strong style={{color:T.accent}}>Personal Access Token</strong> with <code style={{color:T.teal,background:T.bg,padding:"1px 5px",borderRadius:3}}>repo</code> scope.
         </div>
@@ -712,7 +824,7 @@ function GitHubSection({ calendar, trends }) {
         </div>
       )}
 
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,marginTop:14}}>
+      <div className="glass" style={{padding:16,marginTop:14}}>
         <div style={{fontSize:12,fontWeight:600,color:T.text,marginBottom:10}}>📦 What gets pushed</div>
         {[
           ["data/calendar.json",`${calendar.length} posts with titles, hooks, captions, scripts`],
@@ -729,33 +841,94 @@ function GitHubSection({ calendar, trends }) {
   );
 }
 
+// ─── LOGIN (published version only) ──────────────────────────────────────────
+function LoginScreen() {
+  const [pw, setPw] = useState("");
+  const [remember, setRemember] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!pw || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const r = await login(pw, remember);
+      if (!r.ok) setErr(r.error);
+    } catch { setErr("Couldn't reach the server — check your internet connection."); }
+    setBusy(false);
+  };
+  return (
+    <>
+    <div className="sky" aria-hidden="true"/>
+    <div style={{position:"relative",zIndex:1,minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",padding:16,color:T.text}}>
+      <form onSubmit={submit} className="glass" style={{padding:28,width:"100%",maxWidth:380,background:"rgba(24,19,32,0.7)",borderRadius:24}}>
+        <BrandMark size={48}/>
+        <div className="display" style={{fontSize:28,fontWeight:600,margin:"18px 0 4px",lineHeight:1.1}}>Backpack <span className="gradient-text">OS</span></div>
+        <div style={{fontSize:13,color:T.text3,marginBottom:22,display:"flex",alignItems:"center",gap:6}}><Lock size={13}/>Enter your app password to continue</div>
+        <input type="password" autoFocus autoComplete="current-password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Password"
+          style={{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.06)",border:`1px solid ${err?T.red:T.border2}`,borderRadius:14,color:T.text,padding:"12px 14px",fontSize:16,outline:"none",fontFamily:"inherit",marginBottom:10}}/>
+        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.text2,marginBottom:14,cursor:"pointer"}}>
+          <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember me on this device
+        </label>
+        {err && <div style={{fontSize:12,color:T.red,marginBottom:10}}>❌ {err}</div>}
+        <PrimaryBtn type="submit" disabled={busy||!pw} style={{width:"100%",padding:"13px"}}>
+          {busy ? <><Spinner size={14} color="#fff"/>Checking…</> : "Unlock"}
+        </PrimaryBtn>
+      </form>
+    </div>
+    </>
+  );
+}
+
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 const NAV = [
-  { id:"dashboard", label:"⚡ Dashboard" },
-  { id:"agent",     label:"🤖 Agent" },
-  { id:"youtube",   label:"▶️ YouTube" },
-  { id:"monetize",  label:"💰 Monetize" },
-  { id:"stats",     label:"📈 My Stats" },
-  { id:"calendar",  label:"📅 Calendar" },
-  { id:"viral",     label:"🔥 Viral Ideas" },
-  { id:"buckets",   label:"🗂️ Buckets" },
-  { id:"trends",    label:"🌐 Trends" },
-  { id:"tracker",   label:"📊 Tracker" },
-  { id:"github",    label:"🐙 GitHub" },
+  { id:"dashboard", label:"Home",          icon:Home,         group:"Studio" },
+  { id:"agent",     label:"Creator Agent", short:"Agent", icon:Bot, group:"Studio" },
+  { id:"calendar",  label:"Calendar",      icon:CalendarDays, group:"Studio" },
+  { id:"youtube",   label:"YouTube Studio",short:"YouTube", icon:Youtube, group:"Studio" },
+  { id:"viral",     label:"Viral Ideas",   icon:Flame,        group:"Studio" },
+  { id:"trends",    label:"Trends",        icon:Radar,        group:"Grow" },
+  { id:"buckets",   label:"Content Buckets",short:"Buckets", icon:Layers, group:"Grow" },
+  { id:"tracker",   label:"Tracker",       icon:ListChecks,   group:"Grow" },
+  { id:"monetize",  label:"Monetize",      icon:Wallet,       group:"Earn" },
+  { id:"stats",     label:"My Stats",      icon:BarChart3,    group:"Earn" },
+  { id:"github",    label:"GitHub Sync",   short:"GitHub", icon:Github, group:"Settings" },
 ];
+const TAB_IDS = ["dashboard","agent","calendar","youtube"];
+
+function BrandMark({ size=40 }) {
+  return <div className="brand-mark" style={{width:size,height:size}}><Backpack size={size*0.52} strokeWidth={2}/></div>;
+}
+
+function StatusPill({ apiStatus, busy, compact }) {
+  if (busy) return (
+    <div style={{fontSize:11,color:T.accent,display:"flex",alignItems:"center",gap:6,fontWeight:600}}><Spinner size={12}/>{!compact&&"AI working…"}</div>
+  );
+  const c = apiStatus.state==="ok" ? T.green : apiStatus.state==="error" ? T.red : T.amber;
+  const label = apiStatus.state==="ok" ? "API connected" : apiStatus.state==="error" ? "API problem" : "Checking…";
+  return (
+    <button onClick={checkApiKey} title={`${apiStatus.message} — tap to re-check`} aria-label={label} style={{fontSize:11,fontWeight:650,color:c,background:c+"16",border:`1px solid ${c}40`,borderRadius:99,padding:compact?"6px 10px":"6px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:7,fontFamily:"inherit"}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:c,boxShadow:apiStatus.state==="ok"?`0 0 8px ${c}`:"none"}}/>{!compact&&label}
+    </button>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState("dashboard");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [calendar, setCalendar] = useState(makeSeedCalendar);
   const [trends, setTrends] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+  const [, setAlerts] = useState([]);
   const [pendingAlert, setPendingAlert] = useState(null);
   const [loading, setLoading] = useState({ trends:false, calendar:false, alert:false });
   const [selectedDay, setSelectedDay] = useState(null);
   const [lastScan, setLastScan] = useState(null);
   const [notif, setNotif] = useState(null);
   const [apiStatus, setApiStatus] = useState({ state:"checking", message:"Checking API key…" });
-  useEffect(() => { const off = onApiStatus(setApiStatus); checkApiKey(); return off; }, []);
+  const [authed, setAuthed] = useState(isLoggedIn);
+  useEffect(() => onAuthChange(setAuthed), []);
+  useEffect(() => onApiStatus(setApiStatus), []);
+  useEffect(() => { if (authed) checkApiKey(); }, [authed]);
   const [stats, setStats] = useState(loadStats);
 
   const showNotif = useCallback((msg, type="info") => {
@@ -831,70 +1004,116 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
     setSelectedDay(updated);
   },[]);
 
+  if (!authed) return <LoginScreen/>;
+
+  const busy = loading.trends||loading.calendar||loading.alert;
+  const go = (id) => { setView(id); setMoreOpen(false); window.scrollTo({top:0}); };
+  const groups = [...new Set(NAV.map(n=>n.group))];
+  const moreActive = !TAB_IDS.includes(view);
+
   return (
-    <div style={{background:T.bg,minHeight:"100vh",fontFamily:"'DM Sans','Nunito Sans','Inter',system-ui,sans-serif",color:T.text,display:"flex",flexDirection:"column"}}>
-      <Notif n={notif}/>
+    <>
+      <div className="sky" aria-hidden="true"/>
+      <div className="shell">
+        <Notif n={notif}/>
 
-      {/* Header */}
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"11px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0,position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${T.accent},${T.amber})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🎒</div>
-          <div>
-            <div style={{fontSize:14,fontWeight:700,letterSpacing:"-.3px",lineHeight:1}}>@inside_my_backpack</div>
-            <div style={{fontSize:10,color:T.text3,marginTop:1}}>Instagram + YouTube Creator Agent · HSR Layout, Bangalore</div>
+        {/* Laptop: sidebar */}
+        <aside className="sidebar">
+          <div className="brand">
+            <BrandMark/>
+            <div>
+              <div className="brand-name">Backpack OS</div>
+              <div className="brand-sub">@inside_my_backpack · Bangalore</div>
+            </div>
           </div>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {pendingAlert&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.red,background:T.red+"15",border:`1px solid ${T.red}40`,borderRadius:6,padding:"3px 9px",cursor:"pointer"}} onClick={()=>setView("trends")}>🚨 Trend Alert</div>}
-          {loading.trends||loading.calendar||loading.alert ? (
-            <div style={{fontSize:10,color:T.accent,display:"flex",alignItems:"center",gap:4}}><Spinner size={10}/>AI working…</div>
-          ) : (() => {
-            const c = apiStatus.state==="ok" ? T.green : apiStatus.state==="error" ? T.red : T.accent;
-            const label = apiStatus.state==="ok" ? "API connected" : apiStatus.state==="error" ? "API problem" : "Checking…";
-            return (
-              <button onClick={checkApiKey} title={`${apiStatus.message} — click to re-check`} style={{fontSize:10,fontWeight:600,color:c,background:c+"18",border:`1px solid ${c}45`,borderRadius:6,padding:"3px 9px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}}>
-                <span style={{width:7,height:7,borderRadius:"50%",background:c,boxShadow:apiStatus.state==="ok"?`0 0 6px ${c}`:"none"}}/>{label}
-              </button>
-            );
-          })()}
-        </div>
+          {groups.map(g => (
+            <div key={g}>
+              <div className="nav-group">{g}</div>
+              {NAV.filter(n=>n.group===g).map(n => {
+                const Icon = n.icon;
+                return (
+                  <button key={n.id} className={`nav-item ${view===n.id?"active":""}`} onClick={()=>go(n.id)}>
+                    <Icon size={17} strokeWidth={2}/>{n.label}
+                    {n.id==="trends"&&trends.length>0&&<span className="nav-badge">{trends.length}</span>}
+                    {n.id==="trends"&&pendingAlert&&<span className="nav-badge" style={{background:T.red+"30",color:T.red}}>!</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <div className="sidebar-foot">
+            <StatusPill apiStatus={apiStatus} busy={busy}/>
+            {PROXY_MODE && <button className="nav-item" onClick={logout}><LogOut size={16}/>Log out</button>}
+          </div>
+        </aside>
+
+        {/* Phone: top bar */}
+        <header className="topbar">
+          <div className="brand">
+            <BrandMark size={34}/>
+            <div>
+              <div className="brand-name">Backpack OS</div>
+              <div className="brand-sub">@inside_my_backpack</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {pendingAlert&&<button onClick={()=>go("trends")} aria-label="Trend alert" style={{background:T.red+"20",border:`1px solid ${T.red}50`,color:T.red,borderRadius:99,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center"}}><Siren size={16}/></button>}
+            <StatusPill apiStatus={apiStatus} busy={busy} compact/>
+          </div>
+        </header>
+
+        <main className="main">
+          {apiStatus.state==="error" && (
+            <div className="glass" style={{background:T.red+"14",borderColor:T.red+"45",fontSize:13,padding:"12px 16px",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:18}}>
+              <AlertTriangle size={16} color={T.red}/><span style={{flex:1,minWidth:200}}>{apiStatus.message}</span>
+              <Btn small color={T.red} onClick={checkApiKey}><RefreshCw size={13}/>Re-check</Btn>
+            </div>
+          )}
+          <div key={view} className="page-enter">
+            {view==="dashboard" && <Dashboard calendar={calendar} trends={trends} stats={stats} loading={loading} pendingAlert={pendingAlert} lastScan={lastScan} onScanTrends={fetchTrends} onGenerateCal={generateCalendar} onCheckAlert={checkAlerts} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)} go={go}/>}
+            {view==="agent"     && <AgentSection stats={stats} calendar={calendar} trends={trends}/>}
+            {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
+            {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
+            {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif}/>}
+            {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
+            {view==="viral"     && <ViralSection showNotif={showNotif}/>}
+            {view==="buckets"   && <BucketsSection calendar={calendar}/>}
+            {view==="trends"    && <TrendsSection trends={trends} loading={loading.trends} onScan={fetchTrends} lastScan={lastScan} pendingAlert={pendingAlert} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
+            {view==="tracker"   && <TrackerSection calendar={calendar}/>}
+            {view==="github"    && <GitHubSection calendar={calendar} trends={trends}/>}
+          </div>
+        </main>
+
+        {/* Phone: bottom tab bar */}
+        <nav className="tabbar" aria-label="Main">
+          {TAB_IDS.map(id => {
+            const n = NAV.find(x=>x.id===id); const Icon = n.icon;
+            return <button key={id} className={`tab ${view===id?"active":""}`} onClick={()=>go(id)}><Icon size={20} strokeWidth={2}/>{n.short||n.label}</button>;
+          })}
+          <button className={`tab ${moreActive||moreOpen?"active":""}`} onClick={()=>setMoreOpen(o=>!o)}><Grid3X3 size={20} strokeWidth={2}/>More</button>
+        </nav>
+        {moreOpen && (
+          <div className="more-sheet" onClick={()=>setMoreOpen(false)}>
+            <div className="more-panel" onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 6px 12px"}}>
+                <span className="display" style={{fontSize:18,fontWeight:600}}>More</span>
+                <button onClick={()=>setMoreOpen(false)} aria-label="Close" style={{background:"transparent",border:0,color:T.text2,padding:4}}><X size={20}/></button>
+              </div>
+              <div className="more-grid">
+                {NAV.filter(n=>!TAB_IDS.includes(n.id)).map(n => {
+                  const Icon = n.icon;
+                  return <button key={n.id} className={`more-item ${view===n.id?"active":""}`} onClick={()=>go(n.id)}><Icon size={22} strokeWidth={1.8} color={view===n.id?T.accent:undefined}/>{n.short||n.label}</button>;
+                })}
+                {PROXY_MODE && <button className="more-item" onClick={()=>{setMoreOpen(false);logout();}}><LogOut size={22} strokeWidth={1.8}/>Log out</button>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedDay && (
+          <DayModal day={selectedDay} onClose={()=>setSelectedDay(null)} onUpdate={updateDay}/>
+        )}
       </div>
-
-      {apiStatus.state==="error" && (
-        <div style={{background:T.red+"15",borderBottom:`1px solid ${T.red}40`,color:T.text,fontSize:12,padding:"8px 20px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <span>🔴 {apiStatus.message}</span>
-          <Btn small color={T.red} onClick={checkApiKey}>Re-check</Btn>
-        </div>
-      )}
-
-      {/* Tab nav */}
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,display:"flex",overflowX:"auto",flexShrink:0}}>
-        {NAV.map(n=>(
-          <button key={n.id} onClick={()=>setView(n.id)} style={{background:"transparent",border:"none",borderBottom:`2px solid ${view===n.id?T.accent:"transparent"}`,color:view===n.id?T.accent:T.text3,padding:"10px 14px",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap",transition:"all .12s"}}>
-            {n.label}{n.id==="trends"&&trends.length>0?` (${trends.length})`:""}
-          </button>
-        ))}
-      </div>
-
-      {/* Body */}
-      <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
-        {view==="dashboard" && <Dashboard calendar={calendar} trends={trends} loading={loading} pendingAlert={pendingAlert} lastScan={lastScan} onScanTrends={fetchTrends} onGenerateCal={generateCalendar} onCheckAlert={checkAlerts} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
-        {view==="agent"     && <AgentSection stats={stats} calendar={calendar} trends={trends}/>}
-        {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
-        {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
-        {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif}/>}
-        {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
-        {view==="viral"     && <ViralSection showNotif={showNotif}/>}
-        {view==="buckets"   && <BucketsSection calendar={calendar}/>}
-        {view==="trends"    && <TrendsSection trends={trends} loading={loading.trends} onScan={fetchTrends} lastScan={lastScan} pendingAlert={pendingAlert} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
-        {view==="tracker"   && <TrackerSection calendar={calendar}/>}
-        {view==="github"    && <GitHubSection calendar={calendar} trends={trends}/>}
-      </div>
-
-      {/* Day Modal */}
-      {selectedDay && (
-        <DayModal day={selectedDay} onClose={()=>setSelectedDay(null)} onUpdate={updateDay}/>
-      )}
-    </div>
+    </>
   );
 }
