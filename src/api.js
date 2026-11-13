@@ -173,7 +173,7 @@ export async function agentChat(systemPrompt, history, opts = {}) {
   } catch (e) { throw reportError(e); }
 }
 
-async function _agentChat(systemPrompt, history, { onText, webSearch = true } = {}) {
+async function _agentChat(systemPrompt, history, { onText, webSearch = true, maxSearches = 5 } = {}) {
   const messages = [...history];
   let collected = [];
   const acc = { text: "" };
@@ -186,7 +186,7 @@ async function _agentChat(systemPrompt, history, { onText, webSearch = true } = 
       max_tokens: 64000,
       output_config: { effort: "medium" },
       system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-      tools: webSearch ? [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }] : undefined,
+      tools: webSearch ? [{ type: "web_search_20260209", name: "web_search", max_uses: maxSearches }] : undefined,
       messages,
     });
     stream.on("text", handle);
@@ -200,6 +200,35 @@ async function _agentChat(systemPrompt, history, { onText, webSearch = true } = 
     messages.push({ role: "assistant", content: msg.content });
   }
   return { text: acc.text, content: collected };
+}
+
+// Research mode: Claude searches the web, then answers in JSON.
+// Returns { data, sources } where sources are the pages the search tool
+// actually returned (so the UI can link only to real, visited URLs).
+export async function researchJSON(systemPrompt, prompt, { maxSearches = 6 } = {}) {
+  try {
+    const { text, content } = await _agentChat(
+      systemPrompt, [{ role: "user", content: prompt }], { webSearch: true, maxSearches });
+    reportOk();
+    const sources = [];
+    const seen = new Set();
+    const add = (url, title) => {
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      let host = "";
+      try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
+      sources.push({ url, title: title || host, host });
+    };
+    for (const b of content) {
+      if (b.type === "web_search_tool_result" && Array.isArray(b.content)) {
+        b.content.forEach((r) => r.type === "web_search_result" && add(r.url, r.title));
+      }
+      if (b.type === "text" && Array.isArray(b.citations)) {
+        b.citations.forEach((c) => add(c.url, c.title));
+      }
+    }
+    return { data: parseJSON(text), sources };
+  } catch (e) { throw reportError(e); }
 }
 
 export const SYSTEMS = {
@@ -238,7 +267,9 @@ Always respond with valid JSON only. No markdown, no preamble.`,
 
   viral: `You are a viral content analyst tracking trending content on Instagram Reels, YouTube Shorts, and Facebook Reels in the travel, lifestyle, food, and men's fashion niches — specifically for an Indian audience.
 
-Always respond with valid JSON only. No markdown fences, no explanation.`,
+Use web search to find what is actually trending right now (recent articles, trend roundups, platform announcements, trending audio/format reports, news about Indian travel and fashion creators). Prefer sources from the last few weeks. Base every idea on something you found; do not invent trends, statistics or view counts.
+
+Your final answer must be valid JSON only (no markdown fences, no explanation before or after).`,
 
   youtube: `You are a YouTube strategist and packaging expert (titles, thumbnails, retention) for @inside_my_backpack — a Bangalore-based travel/lifestyle creator with a full-time job who shoots on weekends (Sony A7III, DJI Mini 5 Pro drone, iPhone 15 Pro Max).
 You know YouTube search + suggested-video dynamics, CTR/AVD trade-offs, Shorts → long-form funnels, and the Indian audience (Hinglish-friendly, value-for-money, weekend trips from Bangalore).

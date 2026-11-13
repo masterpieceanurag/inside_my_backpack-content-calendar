@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { callClaude, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
+import { callClaude, researchJSON, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
 import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats } from "./ui";
 import {
   Home, Bot, CalendarDays, Youtube, Instagram, Flame, Radar, Layers, ListChecks, Wallet, BarChart3, Github,
   LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
-  ChevronLeft, ChevronRight, Clock, Lock, Mountain,
+  ChevronLeft, ChevronRight, Clock, Lock, Mountain, Lightbulb, Users, Globe, Search, ExternalLink,
 } from "lucide-react";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate } from "./data";
@@ -220,103 +220,165 @@ function DayModal({ day, onClose, onUpdate }) {
 }
 
 // ─── VIRAL SUGGESTIONS ────────────────────────────────────────────────────────
+const VIRAL_KEY = "imb_viral_ideas_v2";
+const normUrl = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./,"") + x.pathname).replace(/\/$/,""); } catch { return ""; } };
+
 function ViralSection({ showNotif }) {
-  const [items, setItems] = useState([]);
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(VIRAL_KEY)) || null; } catch { return null; } })();
+  const [items, setItems] = useState(saved?.items || []);
+  const [sources, setSources] = useState(saved?.sources || []);
+  const [meta, setMeta] = useState(saved ? { at: saved.at, live: saved.live, focus: saved.focus } : null);
   const [loading, setLoading] = useState(false);
-  const [platform, setPlatform] = useState("All");
+  const [platform, setPlatform] = useState(saved?.focus || "All");
+  const [showSources, setShowSources] = useState(false);
 
-  const fetch = useCallback(async (p) => {
+  const research = useCallback(async (p) => {
     setLoading(true);
-    try {
-      const result = await callClaude(SYSTEMS.viral,
-        `Generate 12 viral content ideas trending right now on Instagram Reels, YouTube Shorts, and Facebook Reels for a Bangalore-based travel/lifestyle/food/men's fashion creator.
-${p!=="All"?`Focus only on ${p}.`:"Mix all three platforms."}
+    const today = new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
+    const prompt = `Today is ${today}. Research what is trending RIGHT NOW on Instagram Reels, YouTube Shorts and Facebook Reels for Indian travel, lifestyle, food and men's fashion creators (bonus if Bangalore / South India specific).
+${p!=="All"?`Focus only on ${p}.`:"Cover all three platforms."}
 
-Return JSON array of 12 objects:
+Creator: @inside_my_backpack — Bangalore (HSR Layout), full-time job, weekend road trips, café explorer, home cook, ex-fashion buyer. Gear: Sony A7III, DJI Mini 5 Pro drone, iPhone 15 Pro Max. The creator's best posts are relatable millennial humour over their own travel footage, emotional "missing home" stories, and useful road-trip tips.
+
+Search the web first. Then return a JSON array of 10 ideas, each grounded in something you found:
 [{
   "platform": "Instagram"|"YouTube"|"Facebook",
-  "title": string (viral content idea title),
-  "description": string (2-sentence description of the trend/format),
+  "title": string,
+  "description": string (2 sentences: what the trend/format is),
+  "evidence": string (1 sentence: what you found that shows it's trending now — name the source),
+  "sourceUrl": string (URL of the search result you're relying on, copied exactly),
   "format": "Reel"|"Short"|"Vlog"|"Carousel",
-  "niche": string (travel|food|style|lifestyle|motivation),
-  "viralScore": number 1-100,
-  "hook": string (specific hook sentence for this creator to use),
-  "adaptation": string (how @inside_my_backpack can make this their own — be specific with Bangalore/HSR/gear context),
-  "exampleAngle": string (concrete example post idea),
-  "trendWindow": string (e.g. "This week", "Next 2 weeks", "Evergreen")
-}]`, 2500);
-      if (Array.isArray(result)) setItems(result);
-    } catch(e) { showNotif("Failed to load viral content", "error"); }
+  "niche": "travel"|"food"|"style"|"lifestyle"|"humour",
+  "viralScore": number 1-100 (your estimate of momentum for THIS creator, not a measured number),
+  "hook": string (first-line hook the creator can say or put on screen),
+  "adaptation": string (how the creator makes it their own with Bangalore, their gear and weekend-only schedule),
+  "exampleAngle": string (one concrete post),
+  "trendWindow": "This week"|"Next 2 weeks"|"This month"|"Evergreen"
+}]`;
+    try {
+      const { data, sources: found } = await researchJSON(SYSTEMS.viral, prompt, { maxSearches: 6 });
+      if (!Array.isArray(data)) throw new Error("Couldn't read the research results — try Refresh.");
+      // Only keep links that the search actually returned.
+      const real = new Map(found.map(s => [normUrl(s.url), s]));
+      const cleaned = data.map(it => ({ ...it, source: real.get(normUrl(it.sourceUrl)) || null }));
+      const m = { at: Date.now(), live: true, focus: p };
+      setItems(cleaned); setSources(found); setMeta(m);
+      try { localStorage.setItem(VIRAL_KEY, JSON.stringify({ items: cleaned, sources: found, ...m })); } catch {}
+    } catch (e) {
+      // Live search unavailable (e.g. disabled for the account): fall back to a brainstorm.
+      try {
+        const result = await callClaude(SYSTEMS.viral.replace(/Use web search[\s\S]*?view counts\./, "Web search is unavailable: brainstorm from general knowledge and say so in each description."), prompt.replace("Search the web first. Then return", "Return"));
+        if (!Array.isArray(result)) throw e;
+        const m = { at: Date.now(), live: false, focus: p };
+        setItems(result.map(it => ({ ...it, source: null }))); setSources([]); setMeta(m);
+        showNotif("Live search unavailable — showing a brainstorm instead.", "info");
+      } catch (e2) { showNotif(`Viral Ideas failed: ${e2.message || e.message}`, "error"); }
+    }
     setLoading(false);
   }, [showNotif]);
 
-  useEffect(() => { fetch("All"); }, []);// eslint-disable-line
+  // Only research automatically the first time; afterwards use saved results.
+  useEffect(() => { if (!saved) research("All"); }, []);// eslint-disable-line
 
   const platforms = ["All","Instagram","YouTube","Facebook"];
   const filtered = platform==="All"?items:items.filter(i=>i.platform===platform);
-
   const platColor = { Instagram:T.pink, YouTube:T.red, Facebook:T.blue, All:T.accent };
-  const platIcon  = { Instagram:"📸", YouTube:"▶️", Facebook:"👥" };
+  const platIconC = { Instagram:Instagram, YouTube:Youtube, Facebook:Users, All:Globe };
+  const ago = meta ? (() => { const m = Math.round((Date.now()-meta.at)/60000); return m<1?"just now":m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`; })() : null;
 
   return (
     <div>
-      <div>
-        <PageHeader icon={Flame} color={T.orange} title="Viral Ideas"
-          sub="Formats taking off on Reels, Shorts and Facebook right now, adapted to your Bangalore travel, style and food niche."
-          right={<Btn onClick={()=>fetch(platform)} disabled={loading} color={T.accent}>{loading?<><Spinner size={12}/>Loading…</>:<><RefreshCw size={14}/>Refresh</>}</Btn>}/>
-      </div>
+      <PageHeader icon={Flame} color={T.orange} title="Viral Ideas"
+        sub="Researched live on the web: what's actually trending for Indian travel, food and style creators, turned into ideas for you."
+        right={<PrimaryBtn onClick={()=>research(platform)} disabled={loading}>{loading?<><Spinner size={13} color="#fff"/>Researching…</>:<><Search size={15}/>Research now</>}</PrimaryBtn>}/>
 
       {/* Platform filter */}
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        {platforms.map(p=>(
-          <Pill key={p} label={`${platIcon[p]||"🌐"} ${p}`} color={platform===p?platColor[p]:T.text3}
-            onClick={()=>{setPlatform(p);fetch(p);}}/>
-        ))}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+        {platforms.map(p=>{ const I = platIconC[p]; return (
+          <Pill key={p} label={<><I size={13}/>{p}</>} color={platform===p?platColor[p]:T.text3} onClick={()=>setPlatform(p)}/>
+        );})}
       </div>
 
-      {loading ? (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
-          {[...Array(6)].map((_,i)=>(
-            <div key={i} className="glass" style={{padding:16,height:180,animation:"_pulse 1.5s ease infinite",animationDelay:`${i*.1}s`}}>
-              <style>{`@keyframes _pulse{0%,100%{opacity:.4}50%{opacity:.8}}`}</style>
+      {meta && !loading && (
+        <div className="glass" style={{padding:"10px 14px",marginBottom:16,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",fontSize:12.5,color:T.text2}}>
+          {meta.live
+            ? <><Globe size={15} color={T.teal}/><span>Researched {ago} from <strong style={{color:T.text}}>{sources.length} web sources</strong>{meta.focus!=="All"?` · ${meta.focus} focus`:""}</span>
+                {sources.length>0 && <button onClick={()=>setShowSources(s=>!s)} style={{marginLeft:"auto",background:"transparent",border:0,color:T.teal,cursor:"pointer",fontSize:12.5,fontFamily:"inherit",fontWeight:600}}>{showSources?"Hide sources":"View sources"}</button>}</>
+            : <><AlertTriangle size={15} color={T.amber}/><span>Brainstorm only ({ago}): live web search wasn't available, so these aren't checked against current trends.</span></>}
+          {showSources && (
+            <div style={{flexBasis:"100%",display:"flex",flexDirection:"column",gap:6,marginTop:6}}>
+              {sources.map(s=>(
+                <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer" style={{color:T.text2,textDecoration:"none",fontSize:12,display:"flex",gap:8,alignItems:"baseline"}}>
+                  <ExternalLink size={12} style={{flexShrink:0,position:"relative",top:1}}/><span><span style={{color:T.text}}>{s.title}</span> <span style={{color:T.text3}}>· {s.host}</span></span>
+                </a>
+              ))}
             </div>
-          ))}
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <div>
+          <div className="glass" style={{padding:"12px 14px",marginBottom:14,fontSize:13,color:T.text2,display:"flex",gap:10,alignItems:"center"}}>
+            <Spinner size={14}/>Searching the web for this week's trends and checking sources… this takes 20–60 seconds.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
+            {[...Array(6)].map((_,i)=>(
+              <div key={i} className="glass" style={{padding:16,height:200,animation:"_pulse 1.5s ease infinite",animationDelay:`${i*.1}s`}}>
+                <style>{`@keyframes _pulse{0%,100%{opacity:.4}50%{opacity:.8}}`}</style>
+              </div>
+            ))}
+          </div>
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{textAlign:"center",padding:"40px 0",color:T.text3}}>
-          <div style={{fontSize:32,marginBottom:8}}>🔍</div>
-          <div>No content loaded. Hit Refresh.</div>
+        <div className="glass" style={{textAlign:"center",padding:"40px 20px",color:T.text3}}>
+          <Search size={32} style={{marginBottom:10}}/>
+          <div className="display" style={{fontSize:18,color:T.text2,marginBottom:4}}>{items.length?`No ${platform} ideas in this batch`:"No research yet"}</div>
+          <div style={{fontSize:13}}>Tap <strong>Research now</strong>{platform!=="All"?` to research ${platform} specifically`:""}.</div>
         </div>
       ) : (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:14}}>
           {filtered.map((item, i) => {
-            const pc = platColor[item.platform]||T.accent;
+            const pc = platColor[item.platform]||T.accent; const PI = platIconC[item.platform]||Globe;
+            const sc = item.viralScore>80?T.green:item.viralScore>60?T.accent:T.text3;
             return (
-              <div key={i} className="glass" style={{padding:18,transition:"border-color .15s",cursor:"default"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              <div key={i} className="glass" style={{padding:18,display:"flex",flexDirection:"column"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:8}}>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <Pill label={`${platIcon[item.platform]||"🌐"} ${item.platform}`} color={pc} small/>
+                    <Pill label={<><PI size={12}/>{item.platform}</>} color={pc} small/>
                     <Pill label={item.format} color={T.text3} small/>
                     {item.niche && <Pill label={item.niche} color={T.purple} small/>}
                   </div>
-                  <div style={{fontSize:10,fontWeight:700,color:item.viralScore>80?T.green:item.viralScore>60?T.accent:T.text3,background:(item.viralScore>80?T.green:item.viralScore>60?T.accent:T.text3)+"20",padding:"2px 7px",borderRadius:4,flexShrink:0}}>
-                    🔥 {item.viralScore}
+                  <div title="AI estimate of momentum for you, not measured views" style={{fontSize:11,fontWeight:700,color:sc,background:sc+"20",padding:"3px 9px",borderRadius:99,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
+                    <Flame size={12}/>{item.viralScore}
                   </div>
                 </div>
-                <div className="display" style={{fontSize:17,fontWeight:600,color:T.text,marginBottom:6,lineHeight:1.25}}>{item.title}</div>
-                <div style={{fontSize:11,color:T.text2,lineHeight:1.5,marginBottom:8}}>{item.description}</div>
-                <div style={{fontSize:11,color:pc,padding:"6px 9px",background:pc+"10",borderRadius:6,borderLeft:`2px solid ${pc}`,marginBottom:8,lineHeight:1.4}}>
-                  🎯 {item.adaptation}
+                <div className="display" style={{fontSize:18,fontWeight:600,color:T.text,marginBottom:6,lineHeight:1.25}}>{item.title}</div>
+                <div style={{fontSize:12.5,color:T.text2,lineHeight:1.55,marginBottom:10}}>{item.description}</div>
+                {meta?.live && item.evidence && (
+                  <div style={{fontSize:12,color:T.text2,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:"rgba(46,211,183,0.08)",border:`1px solid ${T.teal}30`,borderRadius:10}}>
+                    <span style={{color:T.teal,fontWeight:700}}>Why now: </span>{item.evidence}
+                    {item.source
+                      ? <a href={item.source.url} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,color:T.teal,marginLeft:6,textDecoration:"none",fontWeight:600}}>{item.source.host}<ExternalLink size={11}/></a>
+                      : <span style={{color:T.text3,marginLeft:6}}>(source not verified)</span>}
+                  </div>
+                )}
+                {item.hook && (
+                  <div style={{fontSize:13,color:T.amber,fontStyle:"italic",marginBottom:10,lineHeight:1.45}}>“{item.hook}”</div>
+                )}
+                <div style={{fontSize:12,color:T.text,padding:"8px 10px",background:pc+"12",borderRadius:10,borderLeft:`2px solid ${pc}`,marginBottom:8,lineHeight:1.5}}>
+                  <strong style={{color:pc}}>Make it yours: </strong>{item.adaptation}
                 </div>
-                <div style={{fontSize:10,color:T.text3,marginBottom:4}}>💡 {item.exampleAngle}</div>
+                <div style={{fontSize:12,color:T.text3,marginBottom:10,lineHeight:1.5}}><Lightbulb size={12} style={{verticalAlign:-1}}/> {item.exampleAngle}</div>
                 {item.trendWindow && (
-                  <Pill label={`⏳ ${item.trendWindow}`} color={item.trendWindow.includes("week")?T.orange:T.teal} small/>
+                  <div style={{marginTop:"auto"}}><Pill label={<><Clock size={11}/>{item.trendWindow}</>} color={/week/i.test(item.trendWindow)?T.orange:T.teal} small/></div>
                 )}
               </div>
             );
           })}
         </div>
       )}
+      <div style={{fontSize:11.5,color:T.text3,marginTop:14,lineHeight:1.5}}>The 🔥 score is the AI's estimate of momentum for you, not measured views. Each refresh runs up to 6 web searches, costing roughly a few US cents of your Claude credit.</div>
     </div>
   );
 }
