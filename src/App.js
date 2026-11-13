@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { callClaude, SYSTEMS } from "./api";
+import { callClaude, SYSTEMS, onApiStatus, checkApiKey } from "./api";
 import { T, Pill, Spinner, Btn, loadStats } from "./ui";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate, fmtDateObj } from "./data";
@@ -754,6 +754,8 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [lastScan, setLastScan] = useState(null);
   const [notif, setNotif] = useState(null);
+  const [apiStatus, setApiStatus] = useState({ state:"checking", message:"Checking API key…" });
+  useEffect(() => { const off = onApiStatus(setApiStatus); checkApiKey(); return off; }, []);
   const [stats, setStats] = useState(loadStats);
 
   const showNotif = useCallback((msg, type="info") => {
@@ -844,11 +846,26 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {pendingAlert&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.red,background:T.red+"15",border:`1px solid ${T.red}40`,borderRadius:6,padding:"3px 9px",cursor:"pointer"}} onClick={()=>setView("trends")}>🚨 Trend Alert</div>}
-          <div style={{fontSize:10,color:loading.trends||loading.calendar?T.accent:T.text3,display:"flex",alignItems:"center",gap:4}}>
-            {loading.trends||loading.calendar||loading.alert?<><Spinner size={10}/>AI working…</>:"● Live"}
-          </div>
+          {loading.trends||loading.calendar||loading.alert ? (
+            <div style={{fontSize:10,color:T.accent,display:"flex",alignItems:"center",gap:4}}><Spinner size={10}/>AI working…</div>
+          ) : (() => {
+            const c = apiStatus.state==="ok" ? T.green : apiStatus.state==="error" ? T.red : T.accent;
+            const label = apiStatus.state==="ok" ? "API connected" : apiStatus.state==="error" ? "API problem" : "Checking…";
+            return (
+              <button onClick={checkApiKey} title={`${apiStatus.message} — click to re-check`} style={{fontSize:10,fontWeight:600,color:c,background:c+"18",border:`1px solid ${c}45`,borderRadius:6,padding:"3px 9px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}}>
+                <span style={{width:7,height:7,borderRadius:"50%",background:c,boxShadow:apiStatus.state==="ok"?`0 0 6px ${c}`:"none"}}/>{label}
+              </button>
+            );
+          })()}
         </div>
       </div>
+
+      {apiStatus.state==="error" && (
+        <div style={{background:T.red+"15",borderBottom:`1px solid ${T.red}40`,color:T.text,fontSize:12,padding:"8px 20px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <span>🔴 {apiStatus.message}</span>
+          <Btn small color={T.red} onClick={checkApiKey}>Re-check</Btn>
+        </div>
+      )}
 
       {/* Tab nav */}
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,display:"flex",overflowX:"auto",flexShrink:0}}>
