@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { callClaude, SYSTEMS, onApiStatus, checkApiKey } from "./api";
+import { useState, useEffect, useCallback } from "react";
+import { callClaude, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
 import { T, Pill, Spinner, Btn, loadStats } from "./ui";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
-import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate, fmtDateObj } from "./data";
+import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate } from "./data";
 
 const Notif = ({ n }) => n ? (
   <div style={{
@@ -729,6 +729,42 @@ function GitHubSection({ calendar, trends }) {
   );
 }
 
+// ─── LOGIN (published version only) ──────────────────────────────────────────
+function LoginScreen() {
+  const [pw, setPw] = useState("");
+  const [remember, setRemember] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!pw || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const r = await login(pw, remember);
+      if (!r.ok) setErr(r.error);
+    } catch { setErr("Couldn't reach the server — check your internet connection."); }
+    setBusy(false);
+  };
+  return (
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text}}>
+      <form onSubmit={submit} style={{background:T.card,border:`1px solid ${T.border3}`,borderRadius:16,padding:24,width:"100%",maxWidth:360,boxSizing:"border-box"}}>
+        <div style={{width:44,height:44,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.amber})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:14}}>🎒</div>
+        <div style={{fontSize:17,fontWeight:700,marginBottom:4}}>@inside_my_backpack</div>
+        <div style={{fontSize:12,color:T.text3,marginBottom:18}}>Creator Agent · enter your app password</div>
+        <input type="password" autoFocus autoComplete="current-password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Password"
+          style={{width:"100%",boxSizing:"border-box",background:T.card2,border:`1px solid ${err?T.red:T.border2}`,borderRadius:10,color:T.text,padding:"12px 14px",fontSize:16,outline:"none",fontFamily:"inherit",marginBottom:10}}/>
+        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.text2,marginBottom:14,cursor:"pointer"}}>
+          <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/> Remember me on this device
+        </label>
+        {err && <div style={{fontSize:12,color:T.red,marginBottom:10}}>❌ {err}</div>}
+        <button type="submit" disabled={busy||!pw} style={{width:"100%",background:T.accent,color:"#111",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:busy||!pw?"default":"pointer",opacity:busy||!pw?.6:1,fontFamily:"inherit"}}>
+          {busy ? "Checking…" : "Unlock"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 const NAV = [
   { id:"dashboard", label:"⚡ Dashboard" },
@@ -748,14 +784,17 @@ export default function App() {
   const [view, setView] = useState("dashboard");
   const [calendar, setCalendar] = useState(makeSeedCalendar);
   const [trends, setTrends] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+  const [, setAlerts] = useState([]);
   const [pendingAlert, setPendingAlert] = useState(null);
   const [loading, setLoading] = useState({ trends:false, calendar:false, alert:false });
   const [selectedDay, setSelectedDay] = useState(null);
   const [lastScan, setLastScan] = useState(null);
   const [notif, setNotif] = useState(null);
   const [apiStatus, setApiStatus] = useState({ state:"checking", message:"Checking API key…" });
-  useEffect(() => { const off = onApiStatus(setApiStatus); checkApiKey(); return off; }, []);
+  const [authed, setAuthed] = useState(isLoggedIn);
+  useEffect(() => onAuthChange(setAuthed), []);
+  useEffect(() => onApiStatus(setApiStatus), []);
+  useEffect(() => { if (authed) checkApiKey(); }, [authed]);
   const [stats, setStats] = useState(loadStats);
 
   const showNotif = useCallback((msg, type="info") => {
@@ -831,6 +870,8 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
     setSelectedDay(updated);
   },[]);
 
+  if (!authed) return <LoginScreen/>;
+
   return (
     <div style={{background:T.bg,minHeight:"100vh",fontFamily:"'DM Sans','Nunito Sans','Inter',system-ui,sans-serif",color:T.text,display:"flex",flexDirection:"column"}}>
       <Notif n={notif}/>
@@ -857,6 +898,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
               </button>
             );
           })()}
+          {PROXY_MODE && <button onClick={logout} title="Log out of this device" style={{fontSize:10,color:T.text3,background:"transparent",border:`1px solid ${T.border2}`,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit"}}>Log out</button>}
         </div>
       </div>
 

@@ -7,18 +7,63 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL = "claude-opus-5-5";
 
+// Two modes:
+// - DIRECT (local `npm start` with REACT_APP_ANTHROPIC_API_KEY in .env): the
+//   browser calls the Claude API itself.
+// - PROXY (published on Vercel, no key in the build): the browser calls this
+//   site's /api/anthropic function, which holds the key on the server and
+//   requires the app password.
+const DIRECT_KEY = process.env.REACT_APP_ANTHROPIC_API_KEY;
+export const PROXY_MODE = !DIRECT_KEY;
+
+const PW_KEY = "imb_app_password";
+function getPassword() {
+  try { return sessionStorage.getItem(PW_KEY) || localStorage.getItem(PW_KEY) || ""; } catch { return ""; }
+}
+
+// Login state (only used in PROXY mode).
+const _authListeners = new Set();
+export function onAuthChange(fn) { _authListeners.add(fn); return () => _authListeners.delete(fn); }
+export function isLoggedIn() { return !PROXY_MODE || !!getPassword(); }
+
+export async function login(password, remember) {
+  const r = await fetch("/api/login", { method: "POST", headers: { "x-app-password": password } });
+  if (r.ok) {
+    try {
+      (remember ? localStorage : sessionStorage).setItem(PW_KEY, password);
+    } catch {}
+    _client = null;
+    _authListeners.forEach((fn) => fn(true));
+    return { ok: true };
+  }
+  let msg = r.status === 401 ? "Wrong password" : "Server not ready";
+  try { msg = (await r.json()).error || msg; } catch {}
+  return { ok: false, error: msg };
+}
+
+export function logout() {
+  try { sessionStorage.removeItem(PW_KEY); localStorage.removeItem(PW_KEY); } catch {}
+  _client = null;
+  _authListeners.forEach((fn) => fn(false));
+}
+
 let _client = null;
 function client() {
-  if (!process.env.REACT_APP_ANTHROPIC_API_KEY) {
-    throw new Error("No API key — add REACT_APP_ANTHROPIC_API_KEY to a .env file and restart `npm start`.");
-  }
   if (!_client) {
-    _client = new Anthropic({
-      apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY,
-      dangerouslyAllowBrowser: true,
-    });
+    _client = PROXY_MODE
+      ? new Anthropic({
+          apiKey: "held-on-server", // replaced by the server; never a real key
+          baseURL: `${window.location.origin}/api/anthropic`,
+          defaultHeaders: { "x-app-password": getPassword() },
+          dangerouslyAllowBrowser: true,
+        })
+      : new Anthropic({ apiKey: DIRECT_KEY, dangerouslyAllowBrowser: true });
   }
   return _client;
+}
+
+function isAppPasswordError(e) {
+  return PROXY_MODE && e instanceof Anthropic.AuthenticationError && e.error?.error?.type === "app_password_error";
 }
 
 // ─── API connection status (drives the header indicator) ─────────────────────
@@ -29,8 +74,10 @@ function setStatus(s) { _status = s; _listeners.forEach((fn) => fn(s)); }
 export function onApiStatus(fn) { _listeners.add(fn); fn(_status); return () => _listeners.delete(fn); }
 
 function friendlyError(e) {
-  if (!process.env.REACT_APP_ANTHROPIC_API_KEY) return "No API key found — add it to the .env file and restart npm start.";
-  if (e instanceof Anthropic.AuthenticationError) return "API key is invalid or expired — create a new key and update .env.";
+  if (isAppPasswordError(e)) return "Please log in again.";
+  if (e instanceof Anthropic.AuthenticationError) return PROXY_MODE
+    ? "API key on the server is missing, invalid or expired — update ANTHROPIC_API_KEY in Vercel → Settings → Environment Variables, then redeploy."
+    : "API key is invalid or expired — create a new key and update .env.";
   if (e instanceof Anthropic.PermissionDeniedError) return "This key doesn't have permission to use the model.";
   if (e instanceof Anthropic.RateLimitError) return "Rate limit reached — wait a minute and try again.";
   if (e instanceof Anthropic.BadRequestError && /credit|billing|balance/i.test(e.message || "")) return "Out of API credit — add funds in Claude Console → Billing.";
@@ -42,8 +89,8 @@ function friendlyError(e) {
 function reportOk() { if (_status.state !== "ok") setStatus({ state: "ok", message: "API key working" }); }
 function reportError(e) {
   // Only connection/auth/billing problems mean the key itself isn't working.
-  const keyProblem = !process.env.REACT_APP_ANTHROPIC_API_KEY
-    || e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError
+  if (isAppPasswordError(e)) { logout(); }
+  const keyProblem = e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError
     || e instanceof Anthropic.APIConnectionError
     || (e instanceof Anthropic.BadRequestError && /credit|billing|balance/i.test(e.message || ""));
   if (keyProblem) setStatus({ state: "error", message: friendlyError(e) });
@@ -59,6 +106,7 @@ export async function checkApiKey() {
     await client().models.retrieve(MODEL);
     setStatus({ state: "ok", message: "API key working" });
   } catch (e) {
+    if (isAppPasswordError(e)) logout();
     setStatus({ state: "error", message: friendlyError(e) });
   }
 }

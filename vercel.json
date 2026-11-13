@@ -1,0 +1,18 @@
+{
+  "rewrites": [
+    { "source": "/api/anthropic/:path*", "destination": "/api/anthropic?path=:path*" }
+  ],
+  "functions": {
+    "api/anthropic.js": { "maxDuration": 300 }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    }
+  ]
+}
