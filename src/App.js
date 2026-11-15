@@ -3,10 +3,11 @@ import { callClaude, researchJSON, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE
 import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats } from "./ui";
 import {
   Home, Bot, CalendarDays, Youtube, Instagram, Flame, Radar, Layers, ListChecks, Wallet, BarChart3, Github,
-  LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
+  ImagePlus, LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
   ChevronLeft, ChevronRight, Clock, Lock, Mountain, Lightbulb, Users, Globe, Search, ExternalLink,
 } from "lucide-react";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
+import { CoachSection } from "./coach";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate } from "./data";
 
 const Notif = ({ n }) => {
@@ -703,6 +704,7 @@ function Dashboard({ calendar, trends, stats, loading, pendingAlert, lastScan, o
           <div style={{fontSize:14,color:T.text2,lineHeight:1.55,marginBottom:18}}>Weekend road trips, café corners and style on the road. Plan it, script it and grow it here.</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <PrimaryBtn onClick={()=>go("agent")}><Sparkles size={15}/>Ask your agent</PrimaryBtn>
+            <Btn onClick={()=>go("coach")} color={T.text}><ImagePlus size={15}/>Review my photos</Btn>
             <Btn onClick={()=>go("calendar")} color={T.text}><CalendarDays size={15}/>Plan the week</Btn>
             <Btn onClick={()=>go("youtube")} color={T.text}><Youtube size={15}/>YouTube package</Btn>
           </div>
@@ -946,6 +948,7 @@ function LoginScreen() {
 const NAV = [
   { id:"dashboard", label:"Home",          icon:Home,         group:"Studio" },
   { id:"agent",     label:"Creator Agent", short:"Agent", icon:Bot, group:"Studio" },
+  { id:"coach",     label:"Post Coach",    short:"Coach", icon:ImagePlus, group:"Studio" },
   { id:"calendar",  label:"Calendar",      icon:CalendarDays, group:"Studio" },
   { id:"youtube",   label:"YouTube Studio",short:"YouTube", icon:Youtube, group:"Studio" },
   { id:"viral",     label:"Viral Ideas",   icon:Flame,        group:"Studio" },
@@ -956,7 +959,7 @@ const NAV = [
   { id:"stats",     label:"My Stats",      icon:BarChart3,    group:"Earn" },
   { id:"github",    label:"GitHub Sync",   short:"GitHub", icon:Github, group:"Settings" },
 ];
-const TAB_IDS = ["dashboard","agent","calendar","youtube"];
+const TAB_IDS = ["dashboard","agent","coach","calendar"];
 
 function BrandMark({ size=40 }) {
   return <div className="brand-mark" style={{width:size,height:size}}><Backpack size={size*0.52} strokeWidth={2}/></div>;
@@ -1134,6 +1137,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
           <div key={view} className="page-enter">
             {view==="dashboard" && <Dashboard calendar={calendar} trends={trends} stats={stats} loading={loading} pendingAlert={pendingAlert} lastScan={lastScan} onScanTrends={fetchTrends} onGenerateCal={generateCalendar} onCheckAlert={checkAlerts} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)} go={go}/>}
             {view==="agent"     && <AgentSection stats={stats} calendar={calendar} trends={trends}/>}
+            {view==="coach"     && <CoachSection stats={stats}/>}
             {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
             {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
             {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif}/>}
