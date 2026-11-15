@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { callClaude, researchJSON, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
-import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats } from "./ui";
+import { callClaude, researchJSON, fetchLiveStats, SYSTEMS, onApiStatus, checkApiKey, PROXY_MODE, isLoggedIn, onAuthChange, login, logout } from "./api";
+import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats, saveStats } from "./ui";
 import {
   Home, Bot, CalendarDays, Youtube, Instagram, Flame, Radar, Layers, ListChecks, Wallet, BarChart3, Github,
   ImagePlus, LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
@@ -993,8 +993,23 @@ export default function App() {
   const [authed, setAuthed] = useState(isLoggedIn);
   useEffect(() => onAuthChange(setAuthed), []);
   useEffect(() => onApiStatus(setApiStatus), []);
-  useEffect(() => { if (authed) checkApiKey(); }, [authed]);
   const [stats, setStats] = useState(loadStats);
+  const [live, setLive] = useState(null); // { updatedAt, values, sources, errors, configured }
+  const [liveLoading, setLiveLoading] = useState(false);
+  const refreshLive = useCallback(async (fresh = false) => {
+    setLiveLoading(true);
+    try {
+      const r = await fetchLiveStats(fresh);
+      if (r) {
+        setLive(r);
+        if (Object.keys(r.values || {}).length) {
+          setStats(s => { const merged = { ...s, ...r.values }; saveStats(merged); return merged; });
+        }
+      }
+    } catch (e) { setLive(l => ({ ...(l||{}), errors: { ...(l?.errors||{}), server: e.message } })); }
+    setLiveLoading(false);
+  }, []);
+  useEffect(() => { if (authed) { checkApiKey(); refreshLive(); } }, [authed, refreshLive]);
 
   const showNotif = useCallback((msg, type="info") => {
     setNotif({msg,type});
@@ -1140,7 +1155,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
             {view==="coach"     && <CoachSection stats={stats}/>}
             {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
             {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
-            {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif}/>}
+            {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif} live={live} liveLoading={liveLoading} onRefresh={()=>refreshLive(true)}/>}
             {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
             {view==="viral"     && <ViralSection showNotif={showNotif}/>}
             {view==="buckets"   && <BucketsSection calendar={calendar}/>}

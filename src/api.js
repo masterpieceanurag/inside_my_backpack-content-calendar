@@ -66,6 +66,17 @@ function isAppPasswordError(e) {
   return PROXY_MODE && e instanceof Anthropic.AuthenticationError && e.error?.error?.type === "app_password_error";
 }
 
+// Live creator stats from /api/stats (published version only; the local
+// `npm start` copy has no server, so it returns null and stats stay manual).
+export async function fetchLiveStats(fresh = false) {
+  if (!PROXY_MODE || !getPassword()) return null;
+  const r = await fetch(`/api/stats${fresh ? "?fresh=1" : ""}`, { headers: { "x-app-password": getPassword() } });
+  if (r.status === 401) { logout(); return null; }
+  if (r.status === 404) return null; // older deployment without the stats function
+  if (!r.ok) throw new Error(`Stats unavailable (HTTP ${r.status})`);
+  return r.json();
+}
+
 // ─── API connection status (drives the header indicator) ─────────────────────
 // state: "checking" | "ok" | "error"
 let _status = { state: "checking", message: "Checking API key…" };
