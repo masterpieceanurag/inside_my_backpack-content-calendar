@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { callClaude, agentChat, SYSTEMS } from "./api";
 import { PROFILE } from "./data";
 import { T, Pill, Spinner, Btn, PrimaryBtn, Card, Label, Markdown, PageHeader, inputStyle, saveStats } from "./ui";
-import { BarChart3, Bot, Youtube, Wallet, Rocket, Instagram, Sparkles, Trash2, Send, Lightbulb, Clapperboard, Map, Mail, Save } from "lucide-react";
+import { RefreshCw, BarChart3, Bot, Youtube, Wallet, Rocket, Instagram, Sparkles, Trash2, Send, Lightbulb, Clapperboard, Map, Mail, Save } from "lucide-react";
 
 const fmtN = (n) => (Number(n) || 0).toLocaleString("en-IN");
 const Section = ({ icon, color, title, sub, right, children }) => (
@@ -19,12 +19,15 @@ Creator's stated goal: ${s.goal || "not set"}.`;
 }
 
 // ─── CREATOR STATS ────────────────────────────────────────────────────────────
-export function StatsSection({ stats, setStats, showNotif }) {
+export function StatsSection({ stats, setStats, showNotif, live, liveLoading, onRefresh }) {
   const [form, setForm] = useState(stats);
+  const auto = new Set(Object.keys(live?.values || {}));
+  // Keep the form in step with live updates that arrive after the page opens.
+  useEffect(() => { setForm(f => ({ ...f, ...(live?.values || {}) })); }, [live]);
   const fields = [
-    ["igFollowers","Instagram followers"],["igAvgReelViews","Avg Reel views"],["igEngagementRate","IG engagement rate (%)"],
+    ["igFollowers","Instagram followers"],["igAvgReelViews","Avg Reel views (last 12)"],["igEngagementRate","IG engagement rate (%)"],
     ["ytSubscribers","YouTube subscribers"],["ytWatchHours12mo","Public watch hours (12 mo)"],["ytShortsViews90d","Shorts views (90 days)"],
-    ["ytUploads90d","Public uploads (90 days)"],["ytAvgViews","Avg long-form views"],
+    ["ytUploads90d","Public uploads (90 days)"],["ytAvgViews","Avg views (last 10 videos)"],
   ];
   const save = () => {
     const clean = { ...form };
@@ -32,14 +35,37 @@ export function StatsSection({ stats, setStats, showNotif }) {
     setStats(clean); saveStats(clean);
     showNotif("✅ Stats saved — the agent will use these numbers", "success");
   };
+  const ago = live?.updatedAt ? (() => { const m = Math.round((Date.now() - new Date(live.updatedAt)) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; })() : null;
+  const cfg = live?.configured || {};
+  const errs = live?.errors || {};
+  const status = (name, on, src, err) => (
+    <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12.5,color:T.text2}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:err?T.red:on?T.green:T.text3,flexShrink:0}}/>
+      <strong style={{color:T.text}}>{name}</strong>
+      <span>{err ? err : on ? `Live${src?` · ${src}`:""}` : "Not connected yet (numbers are manual)"}</span>
+    </div>
+  );
   return (
-    <Section icon={BarChart3} color={T.teal} title="My Stats" sub="Copy these from Instagram's Professional Dashboard and YouTube Studio → Analytics. They're saved on this device only.">
+    <Section icon={BarChart3} color={T.teal} title="My Stats"
+      sub="Numbers marked LIVE update automatically each time you open the app. Anything else, copy from Instagram's Professional Dashboard or YouTube Studio → Analytics."
+      right={live && <Btn small color={T.teal} onClick={onRefresh} disabled={liveLoading}>{liveLoading?<Spinner size={12} color={T.teal}/>:<RefreshCw size={13}/>}Refresh now</Btn>}>
+      {live ? (
+        <Card style={{maxWidth:720,marginBottom:14,display:"flex",flexDirection:"column",gap:8}}>
+          {status("YouTube", cfg.youtube, live.sources?.youtube, errs.youtube)}
+          {status("Instagram", cfg.instagram, live.sources?.instagram, errs.instagram)}
+          {errs.server && <div style={{fontSize:12.5,color:T.red}}>{errs.server}</div>}
+          {ago && <div style={{fontSize:11.5,color:T.text3}}>Last checked {ago}</div>}
+        </Card>
+      ) : (
+        <div style={{fontSize:12,color:T.text3,marginBottom:14,maxWidth:720}}>Automatic stats work on the published (Vercel) version once the API keys are added.</div>
+      )}
       <Card style={{maxWidth:720}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(210px,100%),1fr))",gap:12,marginBottom:14}}>
           {fields.map(([k,l]) => (
             <div key={k}>
-              <Label>{l}</Label>
-              <input type="number" min="0" value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} style={inputStyle}/>
+              <Label>{l}{auto.has(k) && <span style={{marginLeft:6,color:T.green,letterSpacing:.5}}>● LIVE</span>}</Label>
+              <input type="number" min="0" value={form[k]} readOnly={auto.has(k)} onChange={e=>setForm({...form,[k]:e.target.value})}
+                style={{...inputStyle,...(auto.has(k)?{background:"rgba(61,220,151,0.08)",borderColor:T.green+"40",cursor:"default"}:{})}}/>
             </div>
           ))}
         </div>
