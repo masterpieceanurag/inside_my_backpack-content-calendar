@@ -515,6 +515,13 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
     const m = dates[0]||new Date();
     return { year:m.getFullYear(), month:m.getMonth() };
   });
+  // When a new calendar is generated, jump to its first month.
+  const firstDate = calendar[0]?.date;
+  useEffect(() => {
+    if (!firstDate) return;
+    const m = new Date(firstDate);
+    setMonth({ year:m.getFullYear(), month:m.getMonth() });
+  }, [firstDate]);
 
   const getDays = (y,m) => { const days=[]; const d=new Date(y,m,1); while(d.getMonth()===m){days.push(new Date(d));d.setDate(d.getDate()+1);} return days; };
   const days = getDays(month.year, month.month);
@@ -945,6 +952,8 @@ function LoginScreen() {
 }
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
+const CAL_KEY = "imb_calendar_v1";
+
 const NAV = [
   { id:"dashboard", label:"Home",          icon:Home,         group:"Studio" },
   { id:"agent",     label:"Creator Agent", short:"Agent", icon:Bot, group:"Studio" },
@@ -981,7 +990,11 @@ function StatusPill({ apiStatus, busy, compact }) {
 export default function App() {
   const [view, setView] = useState("dashboard");
   const [moreOpen, setMoreOpen] = useState(false);
-  const [calendar, setCalendar] = useState(makeSeedCalendar);
+  const [calendar, setCalendar] = useState(() => {
+    try { const c = JSON.parse(localStorage.getItem(CAL_KEY)); if (Array.isArray(c) && c.length) return c; } catch {}
+    return makeSeedCalendar();
+  });
+  useEffect(() => { try { localStorage.setItem(CAL_KEY, JSON.stringify(calendar)); } catch {} }, [calendar]);
   const [trends, setTrends] = useState([]);
   const [, setAlerts] = useState([]);
   const [pendingAlert, setPendingAlert] = useState(null);
@@ -1031,27 +1044,45 @@ Generate 8 trends mixing Instagram Reels, travel, food, men's fashion, and Banga
 
   const generateCalendar = useCallback(async () => {
     setLoading(l=>({...l,calendar:true}));
-    showNotif("🤖 Building AI calendar…","info");
+    showNotif("🤖 Building your 30-day calendar… this takes about a minute.","info");
     try {
-      const start = new Date(); start.setDate(start.getDate()+2);
-      const tSum = trends.length>0 ? trends.map(t=>`- ${t.title}: ${t.description} (${t.strength})`).join("\n") : "Use seasonal trends for Bangalore in this month.";
+      const start = new Date(); start.setDate(start.getDate()+1); start.setHours(9,0,0,0);
+      const tSum = trends.length>0 ? trends.map(t=>`- ${t.title}: ${t.description} (${t.strength})`).join("\n") : "No trend scan yet: use what's seasonal in Bangalore and India for these dates (festivals, weather, holidays).";
+      const days = Array.from({length:30},(_,i)=>{ const d=new Date(start); d.setDate(d.getDate()+i); return `${i+1}. ${d.toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}`; }).join("\n");
+      const schema = {
+        type:"object", additionalProperties:false, required:["posts"],
+        properties:{ posts:{ type:"array", items:{
+          type:"object", additionalProperties:false,
+          required:["day","format","bucket","title","hook","caption","cta","hashtags","postTime","trendUsed"],
+          properties:{
+            day:{type:"integer"},
+            format:{type:"string",enum:["Reel","Carousel","Talking Head","Story","Vlog"]},
+            bucket:{type:"string",enum:PROFILE.buckets},
+            title:{type:"string"}, hook:{type:"string"}, caption:{type:"string"}, cta:{type:"string"}, hashtags:{type:"string"},
+            postTime:{type:"string",enum:["7:00 AM","7:30 AM","8:00 AM","9:00 AM","7:00 PM","8:00 PM","9:00 PM"]},
+            trendUsed:{anyOf:[{type:"string"},{type:"null"}]},
+          } } } },
+      };
       const result = await callClaude(SYSTEMS.calendar,
-        `Generate a 30-day content calendar starting ${start.toDateString()}.
-Current trends:\n${tSum}
+        `Build a 30-day content calendar, one post per day, for these dates:
+${days}
 
-Return JSON array of exactly 30 objects:
-[{"day":number,"format":"Reel"|"Carousel"|"Talking Head"|"Story"|"Vlog","bucket":string,"title":string,"hook":string,"caption":string,"cta":string,"hashtags":string,"postTime":"7:00 AM"|"7:30 AM"|"8:00 AM"|"9:00 AM","trendUsed":string|null}]
+Current trends:
+${tSum}
 
-Mix all 6 buckets, all formats. Days 1-5 = home/city content (no travel needed). Include 4 weekend shoot days (Saturdays). Incorporate trends in ~35% of posts naturally.`, 3500);
-      if(Array.isArray(result)){
-        const updated = result.slice(0,30).map((e,i)=>{
-          const d=new Date(start); d.setDate(d.getDate()+i);
-          return { id:i+1, date:d.toISOString(), aiGenerated:true, trendLocked:!!e.trendUsed, ready:i<5, script:null, ...e };
-        });
-        setCalendar(updated);
-        showNotif("✅ AI calendar ready!","success");
-      }
-    } catch(e){ showNotif("Calendar generation failed","error"); }
+What works best for this creator (from their real data): relatable millennial humour over their own travel footage, emotional "missing home" (Bihar → Bangalore) stories, useful road-trip tips, Bangalore weekend spots with the value in the first line. Their audience is mostly 25-34 working professionals, so evenings (7-9 PM IST) are good posting times.
+
+Rules: mix all 6 buckets and all 5 formats; the creator shoots only on weekends, so weekday posts must use home/city content or footage from earlier trips; plan 4 weekend shoot days.
+Keep it tight: caption = 2 short sentences, hashtags = 8-12 in one string, hook = one line. Set trendUsed to the trend's name if a post uses one, else null.`, 32000, schema);
+      const posts = result?.posts;
+      if (!Array.isArray(posts) || posts.length===0) throw new Error(result?.raw ? "The AI's answer couldn't be read. Please try again." : "The AI returned no posts. Please try again.");
+      const updated = posts.slice(0,30).map((e,i)=>{
+        const d=new Date(start); d.setDate(d.getDate()+i);
+        return { ...e, id:i+1, date:d.toISOString(), aiGenerated:true, trendLocked:!!e.trendUsed, ready:false, script:null };
+      });
+      setCalendar(updated);
+      showNotif(`✅ ${updated.length}-day calendar ready, starting ${start.toLocaleDateString("en-IN",{day:"numeric",month:"short"})}!`,"success");
+    } catch(e){ showNotif(`Calendar generation failed: ${e.message || "unknown error"}`,"error"); }
     setLoading(l=>({...l,calendar:false}));
   }, [trends, showNotif]);
 
