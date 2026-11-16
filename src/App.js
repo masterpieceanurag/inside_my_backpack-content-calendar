@@ -9,6 +9,10 @@ import {
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
 import { CoachSection } from "./coach";
 import { PROFILE, FORMATS, BUCKET_COLORS, MONTH_NAMES, makeSeedCalendar, fmtDate } from "./data";
+import { takeTripFromUrl, mergeTrip, TripImportModal } from "./tripImport";
+
+// A trip planner can hand its posting plan over in the URL (#trip=…). Read it once, before login.
+const INITIAL_TRIP = typeof window !== "undefined" ? takeTripFromUrl() : null;
 
 const Notif = ({ n }) => {
   if (!n) return null;
@@ -181,6 +185,12 @@ function DayModal({ day, onClose, onUpdate }) {
           {day.script&&<Pill label="📝 Script Ready" color={T.teal}/>}
         </div>
         <div style={{fontSize:11,color:T.text3,marginBottom:8}}>📅 {fmtDate(day.date)} · ⏰ {day.postTime}</div>
+        {day.trip && (
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",fontSize:11.5,color:T.text2,marginBottom:10,padding:"8px 11px",background:T.teal+"12",borderRadius:8,borderLeft:`2px solid ${T.teal}`}}>
+            <span>🏔️ From <b>{day.trip.name}</b> · {day.tripStatus||"Idea"}{day.tripOwner?` · owner: ${day.tripOwner}`:""}</span>
+            {day.trip.url && <a href={day.trip.url} target="_blank" rel="noopener noreferrer" style={{color:T.teal,fontWeight:650,display:"inline-flex",alignItems:"center",gap:4}}>Open trip planner<ExternalLink size={12}/></a>}
+          </div>
+        )}
         {day.locked && <div style={{fontSize:11.5,color:T.amber,marginBottom:10}}>Locked: AI Generate will keep this post on this date.</div>}
 
         {editing ? (
@@ -514,7 +524,7 @@ function TrackerSection({ calendar }) {
 }
 
 // ─── CALENDAR VIEW ────────────────────────────────────────────────────────────
-function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
+function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal, onImportTrip }) {
   const [month, setMonth] = useState(()=>{
     const dates = calendar.map(d=>new Date(d.date));
     const m = dates[0]||new Date();
@@ -543,6 +553,7 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
               <span className="display" style={{fontSize:16,fontWeight:600,color:T.text,minWidth:130,textAlign:"center"}}>{MONTH_NAMES[month.month]} {month.year}</span>
               <button aria-label="Next month" onClick={()=>setMonth(m=>{const d=new Date(m.year,m.month+1,1);return{year:d.getFullYear(),month:d.getMonth()}})} style={{background:"transparent",border:0,color:T.text2,padding:"8px 10px",cursor:"pointer",display:"flex"}}><ChevronRight size={18}/></button>
             </div>
+            <Btn onClick={onImportTrip} color={T.teal}><Mountain size={15}/>Import trip</Btn>
             <PrimaryBtn onClick={onGenerate} disabled={loadingCal}>{loadingCal?<><Spinner size={12} color="#fff"/>Generating…</>:<><Wand2 size={15}/>AI Generate</>}</PrimaryBtn>
           </>}/>
       </div>
@@ -1033,6 +1044,7 @@ export default function App() {
   const [pendingAlert, setPendingAlert] = useState(null);
   const [loading, setLoading] = useState({ trends:false, calendar:false, alert:false });
   const [selectedDay, setSelectedDay] = useState(null);
+  const [tripImport, setTripImport] = useState(INITIAL_TRIP); // null | payload | {error} | {} (paste)
   const [lastScan, setLastScan] = useState(savedTrends?.at ? new Date(savedTrends.at) : null);
   const [notif, setNotif] = useState(null);
   const [apiStatus, setApiStatus] = useState({ state:"checking", message:"Checking API key…" });
@@ -1168,6 +1180,14 @@ Return JSON: {"hasAlert":boolean,"reason":string (one line: what you checked / w
     setSelectedDay(updated);
   },[]);
 
+  const importTrip = (payload) => {
+    const r = mergeTrip(calendar, payload);
+    setCalendar(r.calendar);
+    setTripImport(null);
+    setView("calendar");
+    showNotif(`✅ ${payload.trip.name}: ${r.added} post${r.added===1?"":"s"} added${r.updated?`, ${r.updated} updated`:""}.`,"success");
+  };
+
   if (!authed) return <LoginScreen/>;
 
   const busy = loading.trends||loading.calendar||loading.alert;
@@ -1240,7 +1260,7 @@ Return JSON: {"hasAlert":boolean,"reason":string (one line: what you checked / w
             {view==="youtube"   && <YouTubeSection stats={stats} showNotif={showNotif}/>}
             {view==="monetize"  && <MonetizeSection stats={stats} showNotif={showNotif}/>}
             {view==="stats"     && <StatsSection stats={stats} setStats={setStats} showNotif={showNotif} live={live} liveLoading={liveLoading} onRefresh={()=>refreshLive(true)}/>}
-            {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
+            {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar} onImportTrip={()=>setTripImport({})}/>}
             {view==="viral"     && <ViralSection showNotif={showNotif}/>}
             {view==="buckets"   && <BucketsSection calendar={calendar}/>}
             {view==="trends"    && <TrendsSection trends={trends} sources={trendSources} loading={loading.trends} onScan={fetchTrends} lastScan={lastScan} pendingAlert={pendingAlert} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
@@ -1275,6 +1295,9 @@ Return JSON: {"hasAlert":boolean,"reason":string (one line: what you checked / w
           </div>
         )}
 
+        {tripImport && (
+          <TripImportModal payload={tripImport.trip||tripImport.error?tripImport:null} calendar={calendar} onImport={importTrip} onClose={()=>setTripImport(null)}/>
+        )}
         {selectedDay && (
           <DayModal day={selectedDay} onClose={()=>setSelectedDay(null)} onUpdate={updateDay}/>
         )}
