@@ -151,24 +151,29 @@ function parseJSON(raw) {
 }
 
 // One-shot JSON generation (used by calendar, scripts, trends, etc.).
-export async function callClaude(systemPrompt, userMessage, maxTokens = 16000) {
+// `schema` (optional): a JSON Schema the answer must follow (structured
+// outputs), which guarantees valid, complete JSON. Root must be an object.
+export async function callClaude(systemPrompt, userMessage, maxTokens = 16000, schema = null) {
   try {
-    const result = await _callClaude(systemPrompt, userMessage, maxTokens);
+    const result = await _callClaude(systemPrompt, userMessage, maxTokens, schema);
     reportOk();
     return result;
   } catch (e) { throw reportError(e); }
 }
 
-async function _callClaude(systemPrompt, userMessage, maxTokens) {
+async function _callClaude(systemPrompt, userMessage, maxTokens, schema) {
   const stream = client().beta.messages.stream({
     ...BASE,
-    max_tokens: Math.max(maxTokens, 16000),
-    output_config: { effort: "medium" },
+    max_tokens: Math.max(maxTokens, schema ? 32000 : 16000),
+    output_config: schema
+      ? { effort: "medium", format: { type: "json_schema", schema } }
+      : { effort: "medium" },
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
   const msg = await stream.finalMessage();
   if (msg.stop_reason === "refusal") throw new Error("Request was declined by the model.");
+  if (msg.stop_reason === "max_tokens") throw new Error("The AI's answer was too long and got cut off. Please try again.");
   return parseJSON(textOf(msg));
 }
 
