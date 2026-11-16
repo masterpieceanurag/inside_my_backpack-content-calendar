@@ -4,7 +4,7 @@ import { T, Pill, Spinner, Btn, PrimaryBtn, Card, PageHeader, loadStats, saveSta
 import {
   Home, Bot, CalendarDays, Youtube, Instagram, Flame, Radar, Layers, ListChecks, Wallet, BarChart3, Github,
   ImagePlus, LogOut, Backpack, Grid3X3, X, Siren, AlertTriangle, RefreshCw, Sparkles, FileText, CheckCircle2, Wand2,
-  ChevronLeft, ChevronRight, Clock, Lock, Mountain, Lightbulb, Users, Globe, Search, ExternalLink,
+  ChevronLeft, ChevronRight, Clock, Lock, LockOpen, Mountain, Lightbulb, Users, Globe, Search, ExternalLink,
 } from "lucide-react";
 import { AgentSection, YouTubeSection, MonetizeSection, StatsSection } from "./growth";
 import { CoachSection } from "./coach";
@@ -175,11 +175,13 @@ function DayModal({ day, onClose, onUpdate }) {
           <Pill label={`${fmtInfo.icon} ${day.format}`} color={fmtInfo.color}/>
           <Pill label={day.bucket} color={BUCKET_COLORS[day.bucket]||T.purple}/>
           {day.ready&&<Pill label="✅ Ready" color={T.green}/>}
-          {day.trendLocked&&<Pill label="🔥 Trend-Locked" color={T.red}/>}
+          {day.locked&&<Pill label="🔒 Locked" color={T.amber}/>}
+          {day.trendLocked&&<Pill label="🔥 Trend" color={T.red}/>}
           {day.aiGenerated&&<Pill label="🤖 AI" color={T.blue}/>}
           {day.script&&<Pill label="📝 Script Ready" color={T.teal}/>}
         </div>
         <div style={{fontSize:11,color:T.text3,marginBottom:8}}>📅 {fmtDate(day.date)} · ⏰ {day.postTime}</div>
+        {day.locked && <div style={{fontSize:11.5,color:T.amber,marginBottom:10}}>Locked: AI Generate will keep this post on this date.</div>}
 
         {editing ? (
           <div>
@@ -207,6 +209,9 @@ function DayModal({ day, onClose, onUpdate }) {
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
               <Btn onClick={()=>setShowScript(true)} color={T.teal}>{day.script?"📝 View / Edit Script":"📝 Generate Script"}</Btn>
               <Btn onClick={()=>setEditing(true)} color={T.text2} small>✏️ Edit Post</Btn>
+              <Btn onClick={()=>onUpdate({...day,locked:!day.locked})} color={day.locked?T.amber:T.text2} small>
+                {day.locked?<><LockOpen size={13}/>Unlock</>:<><Lock size={13}/>Lock post</>}
+              </Btn>
             </div>
           </div>
         )}
@@ -557,6 +562,7 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
                 <div style={{display:"flex",gap:6,marginBottom:5,flexWrap:"wrap"}}>
                   <Pill small label={`${fi?.icon||""} ${entry.format}`} color={fi?.color||T.accent}/>
                   {entry.ready&&<Pill small label="Ready" color={T.green}/>}
+                  {entry.locked&&<Pill small label={<><Lock size={10}/>Locked</>} color={T.amber}/>}
                   {entry.trendLocked&&<Pill small label="Trend" color={T.red}/>}
                 </div>
                 <div style={{fontSize:14,fontWeight:600,lineHeight:1.35,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{entry.title}</div>
@@ -591,6 +597,7 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
                 <span className="display" style={{fontSize:15,color:isToday?T.accent:T.text2,fontWeight:600}}>{date.getDate()}</span>
                 <div style={{display:"flex",gap:2}}>
                   {entry?.script&&<span style={{fontSize:8,color:T.teal}}>📝</span>}
+                  {entry?.locked&&<Lock size={10} color={T.amber}/>}
                   {entry?.trendLocked&&<span style={{fontSize:8,color:T.red}}>🔥</span>}
                   {entry?.aiGenerated&&!entry.trendLocked&&<span style={{fontSize:8,color:T.blue}}>🤖</span>}
                 </div>
@@ -607,7 +614,7 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
       </div>
       </div>
       <div style={{display:"flex",gap:14,marginTop:12,flexWrap:"wrap"}}>
-        {[["🔥 Trend-locked",T.red],["🤖 AI-generated",T.blue],["📝 Script ready",T.teal],["✅ Ready",T.green]].map(([l,c])=>(
+        {[["🔒 Locked",T.amber],["🔥 Trend-based",T.red],["🤖 AI-generated",T.blue],["📝 Script ready",T.teal],["✅ Ready",T.green]].map(([l,c])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
             <div style={{width:7,height:7,borderRadius:2,background:c}}/>
             <span style={{fontSize:10,color:T.text3}}>{l}</span>
@@ -619,7 +626,8 @@ function CalendarSection({ calendar, onDayClick, onGenerate, loadingCal }) {
 }
 
 // ─── TRENDS SECTION ───────────────────────────────────────────────────────────
-function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAccept, onDismiss }) {
+function TrendsSection({ trends, sources=[], loading, onScan, lastScan, pendingAlert, onAccept, onDismiss }) {
+  const [showSrc, setShowSrc] = useState(false);
   return (
     <div>
       <div>
@@ -633,6 +641,9 @@ function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAcce
           <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:8}}>🚨 Breaking Trend — Action Required</div>
           <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{pendingAlert.title}</div>
           <div style={{fontSize:11,color:T.text2,marginBottom:8}}>{pendingAlert.description}</div>
+          {pendingAlert.evidence&&<div style={{fontSize:12,color:T.text2,marginBottom:8}}><span style={{color:T.teal,fontWeight:700}}>Why now: </span>{pendingAlert.evidence}{pendingAlert.source&&<a href={pendingAlert.source.url} target="_blank" rel="noopener noreferrer" style={{color:T.teal,marginLeft:6,textDecoration:"none",fontWeight:600}}>{pendingAlert.source.host} ↗</a>}</div>}
+          {pendingAlert.replaceTitle&&<div style={{fontSize:12,color:T.amber,marginBottom:10}}>Will replace {pendingAlert.replaceLabel}: “{pendingAlert.replaceTitle}” (and lock the new post)</div>}
+
           {pendingAlert.contentIdea&&<div style={{fontSize:11,color:T.teal,padding:"6px 9px",background:T.teal+"10",borderRadius:6,borderLeft:`2px solid ${T.teal}`,marginBottom:10}}>💡 {pendingAlert.contentIdea}</div>}
           <div style={{display:"flex",gap:8}}>
             <Btn onClick={onAccept} color={T.green} small>✅ Update Calendar</Btn>
@@ -641,6 +652,15 @@ function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAcce
         </div>
       )}
 
+      {sources.length>0 && !loading && (
+        <div className="glass" style={{padding:"10px 14px",marginBottom:14,fontSize:12.5,color:T.text2,display:"flex",flexWrap:"wrap",gap:10,alignItems:"center"}}>
+          <Globe size={15} color={T.teal}/><span>Found on the web from <strong style={{color:T.text}}>{sources.length} sources</strong></span>
+          <button onClick={()=>setShowSrc(s=>!s)} style={{marginLeft:"auto",background:"transparent",border:0,color:T.teal,cursor:"pointer",fontFamily:"inherit",fontWeight:600,fontSize:12.5}}>{showSrc?"Hide sources":"View sources"}</button>
+          {showSrc && <div style={{flexBasis:"100%",display:"flex",flexDirection:"column",gap:5}}>
+            {sources.map(s=><a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer" style={{color:T.text2,textDecoration:"none",fontSize:12}}><ExternalLink size={11}/> <span style={{color:T.text}}>{s.title}</span> · {s.host}</a>)}
+          </div>}
+        </div>
+      )}
       {trends.length===0&&!loading ? (
         <div style={{textAlign:"center",padding:"48px 0",color:T.text3}}>
           <Radar size={36} color={T.text3} style={{marginBottom:10}}/>
@@ -660,7 +680,12 @@ function TrendsSection({ trends, loading, onScan, lastScan, pendingAlert, onAcce
                 </div>
                 <div className="display" style={{fontSize:17,fontWeight:600,color:T.text,marginBottom:6,lineHeight:1.25}}>{t.title}</div>
                 <div style={{fontSize:11,color:T.text2,lineHeight:1.5,marginBottom:8}}>{t.description}</div>
-                {t.contentIdea&&<div style={{fontSize:11,color:T.teal,padding:"6px 9px",background:T.teal+"10",borderRadius:6,borderLeft:`2px solid ${T.teal}`}}>💡 {t.contentIdea}</div>}
+                {t.evidence&&(
+                  <div style={{fontSize:12,color:T.text2,lineHeight:1.5,marginBottom:8}}>
+                    <span style={{color:T.teal,fontWeight:700}}>Why now: </span>{t.evidence}
+                    {t.source ? <a href={t.source.url} target="_blank" rel="noopener noreferrer" style={{color:T.teal,marginLeft:6,textDecoration:"none",fontWeight:600,display:"inline-flex",alignItems:"center",gap:3}}>{t.source.host}<ExternalLink size={11}/></a> : <span style={{color:T.text3,marginLeft:6}}>(source not verified)</span>}
+                  </div>)}
+                {t.contentIdea&&<div style={{fontSize:11.5,color:T.teal,padding:"6px 9px",background:T.teal+"10",borderRadius:6,borderLeft:`2px solid ${T.teal}`}}>💡 {t.contentIdea}</div>}
               </div>
             );
           })}
@@ -693,7 +718,7 @@ function Mountains() {
 function Dashboard({ calendar, trends, stats, loading, pendingAlert, lastScan, onScanTrends, onGenerateCal, onCheckAlert, onAccept, onDismiss, go }) {
   const readyCount = calendar.filter(d=>d.ready).length;
   const scriptCount = calendar.filter(d=>d.script).length;
-  const trendCount = calendar.filter(d=>d.trendLocked).length;
+  const lockedCount = calendar.filter(d=>d.locked).length;
   const hour = new Date().getHours();
   const greeting = hour<5?"Late night edit?":hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
   const today = new Date(); today.setHours(0,0,0,0);
@@ -748,7 +773,7 @@ function Dashboard({ calendar, trends, stats, loading, pendingAlert, lastScan, o
           {l:"Posts planned",v:calendar.length,c:T.amber,I:CalendarDays},
           {l:"Scripts ready",v:scriptCount,c:T.teal,I:FileText},
           {l:"Ready to post",v:readyCount,c:T.green,I:CheckCircle2},
-          {l:"Trend-locked",v:trendCount,c:T.pink,I:Flame},
+          {l:"Locked posts",v:lockedCount,c:T.amber,I:Lock},
         ].map(s=>(
           <div key={s.l} className="glass stat-tile">
             <div className="stat-icon" style={{background:s.c+"1F",color:s.c}}><s.I size={18}/></div>
@@ -812,6 +837,9 @@ function Dashboard({ calendar, trends, stats, loading, pendingAlert, lastScan, o
           <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:8,display:"flex",alignItems:"center",gap:6}}><Siren size={14}/>BREAKING TREND</div>
           <div className="display" style={{fontSize:18,fontWeight:600,color:T.text,marginBottom:4}}>{pendingAlert.title}</div>
           <div style={{fontSize:13,color:T.text2,marginBottom:12}}>{pendingAlert.description}</div>
+          {pendingAlert.evidence&&<div style={{fontSize:12,color:T.text2,marginBottom:8}}><span style={{color:T.teal,fontWeight:700}}>Why now: </span>{pendingAlert.evidence}{pendingAlert.source&&<a href={pendingAlert.source.url} target="_blank" rel="noopener noreferrer" style={{color:T.teal,marginLeft:6,textDecoration:"none",fontWeight:600}}>{pendingAlert.source.host} ↗</a>}</div>}
+          {pendingAlert.replaceTitle&&<div style={{fontSize:12,color:T.amber,marginBottom:10}}>Will replace {pendingAlert.replaceLabel}: “{pendingAlert.replaceTitle}” (and lock the new post)</div>}
+
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <Btn onClick={onAccept} color={T.green} small><CheckCircle2 size={13}/>Add to calendar</Btn>
             <Btn onClick={onDismiss} color={T.text3} small><X size={13}/>Dismiss</Btn>
@@ -953,6 +981,9 @@ function LoginScreen() {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 const CAL_KEY = "imb_calendar_v1";
+const TRENDS_KEY = "imb_trends_v2";
+const linkSources = (items, found) => { const real = new Map(found.map(s => [normUrl(s.url), s])); return items.map(it => ({ ...it, source: real.get(normUrl(it.sourceUrl)) || null })); };
+const dayLabel = (iso) => new Date(iso).toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" });
 
 const NAV = [
   { id:"dashboard", label:"Home",          icon:Home,         group:"Studio" },
@@ -995,12 +1026,14 @@ export default function App() {
     return makeSeedCalendar();
   });
   useEffect(() => { try { localStorage.setItem(CAL_KEY, JSON.stringify(calendar)); } catch {} }, [calendar]);
-  const [trends, setTrends] = useState([]);
+  const savedTrends = (() => { try { return JSON.parse(localStorage.getItem(TRENDS_KEY)) || null; } catch { return null; } })();
+  const [trends, setTrends] = useState(savedTrends?.trends || []);
+  const [trendSources, setTrendSources] = useState(savedTrends?.sources || []);
   const [, setAlerts] = useState([]);
   const [pendingAlert, setPendingAlert] = useState(null);
   const [loading, setLoading] = useState({ trends:false, calendar:false, alert:false });
   const [selectedDay, setSelectedDay] = useState(null);
-  const [lastScan, setLastScan] = useState(null);
+  const [lastScan, setLastScan] = useState(savedTrends?.at ? new Date(savedTrends.at) : null);
   const [notif, setNotif] = useState(null);
   const [apiStatus, setApiStatus] = useState({ state:"checking", message:"Checking API key…" });
   const [authed, setAuthed] = useState(isLoggedIn);
@@ -1032,13 +1065,19 @@ export default function App() {
   const fetchTrends = useCallback(async () => {
     setLoading(l=>({...l,trends:true}));
     try {
-      const now = new Date();
-      const result = await callClaude(SYSTEMS.trends,
-        `Simulate current Instagram & social media trends for ${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()} relevant to a Bangalore travel/lifestyle creator.
-Return JSON: { "trends": [{ "title":string, "description":string, "platform":string, "category":string, "strength":"High|Medium|Low", "contentIdea":string, "hashtags":string[] }], "month":string }
-Generate 8 trends mixing Instagram Reels, travel, food, men's fashion, and Bangalore-specific topics. Make them specific and actionable.`, 2000);
-      if(result.trends){ setTrends(result.trends); setLastScan(new Date()); showNotif(`✅ ${result.trends.length} trends loaded for ${result.month||"this month"}`,"success"); }
-    } catch(e){ showNotif("Trend scan failed","error"); }
+      const today = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"});
+      const { data, sources: found } = await researchJSON(SYSTEMS.trends,
+        `Today is ${today}. Search the web for what is trending RIGHT NOW (roughly the last 2-3 weeks and the coming 2 weeks) that a Bangalore travel / café / food / men's style creator could post about: Instagram Reels and YouTube Shorts formats, Indian travel and food trends, Bangalore and Karnataka events, festivals, weather, places going viral.
+Only include trends you found real evidence for; it's fine to return fewer than 8.
+Return JSON: {"trends":[{"title":string,"description":string,"platform":string,"category":string,"strength":"High"|"Medium"|"Low","contentIdea":string (specific to this creator),"hashtags":string[],"evidence":string (what you found, naming the source),"sourceUrl":string (the exact URL of a search result you used)}]}`, { maxSearches: 6 });
+      const list = data?.trends;
+      if (!Array.isArray(list)) throw new Error("Couldn't read the trend research. Please try again.");
+      const linked = linkSources(list, found);
+      const at = new Date();
+      setTrends(linked); setTrendSources(found); setLastScan(at);
+      try { localStorage.setItem(TRENDS_KEY, JSON.stringify({ trends: linked, sources: found, at: at.toISOString() })); } catch {}
+      showNotif(linked.length ? `✅ ${linked.length} live trends found from ${found.length} web sources` : "No clear trends found right now. Try again later.", linked.length ? "success" : "info");
+    } catch(e){ showNotif(`Trend scan failed: ${e.message || "unknown error"}`,"error"); }
     setLoading(l=>({...l,trends:false}));
   }, [showNotif]);
 
@@ -1048,7 +1087,14 @@ Generate 8 trends mixing Instagram Reels, travel, food, men's fashion, and Banga
     try {
       const start = new Date(); start.setDate(start.getDate()+1); start.setHours(9,0,0,0);
       const tSum = trends.length>0 ? trends.map(t=>`- ${t.title}: ${t.description} (${t.strength})`).join("\n") : "No trend scan yet: use what's seasonal in Bangalore and India for these dates (festivals, weather, holidays).";
-      const days = Array.from({length:30},(_,i)=>{ const d=new Date(start); d.setDate(d.getDate()+i); return `${i+1}. ${d.toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}`; }).join("\n");
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const keep = calendar.filter(d => d.locked && new Date(d.date) >= todayStart);
+      const taken = new Set(keep.map(d => new Date(d.date).toDateString()));
+      const windowDates = Array.from({length:30},(_,i)=>{ const d=new Date(start); d.setDate(d.getDate()+i); return d; });
+      const freeDates = windowDates.filter(d => !taken.has(d.toDateString()));
+      if (!freeDates.length) throw new Error("All 30 days are locked. Unlock some posts first.");
+      const days = freeDates.map((d,i)=>`${i+1}. ${d.toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}`).join("\n");
+      const lockedNote = keep.length ? `\n\nAlready planned and LOCKED (keep these; don't repeat their topics):\n${keep.map(d=>`- ${dayLabel(d.date)}: ${d.title} (${d.format}, ${d.bucket})`).join("\n")}` : "";
       const schema = {
         type:"object", additionalProperties:false, required:["posts"],
         properties:{ posts:{ type:"array", items:{
@@ -1064,8 +1110,8 @@ Generate 8 trends mixing Instagram Reels, travel, food, men's fashion, and Banga
           } } } },
       };
       const result = await callClaude(SYSTEMS.calendar,
-        `Build a 30-day content calendar, one post per day, for these dates:
-${days}
+        `Build a content calendar with exactly one post for each of these ${freeDates.length} dates, in this order:
+${days}${lockedNote}
 
 Current trends:
 ${tSum}
@@ -1076,37 +1122,44 @@ Rules: mix all 6 buckets and all 5 formats; the creator shoots only on weekends,
 Keep it tight: caption = 2 short sentences, hashtags = 8-12 in one string, hook = one line. Set trendUsed to the trend's name if a post uses one, else null.`, 32000, schema);
       const posts = result?.posts;
       if (!Array.isArray(posts) || posts.length===0) throw new Error(result?.raw ? "The AI's answer couldn't be read. Please try again." : "The AI returned no posts. Please try again.");
-      const updated = posts.slice(0,30).map((e,i)=>{
-        const d=new Date(start); d.setDate(d.getDate()+i);
-        return { ...e, id:i+1, date:d.toISOString(), aiGenerated:true, trendLocked:!!e.trendUsed, ready:false, script:null };
-      });
+      const fresh = posts.slice(0, freeDates.length).map((e,i)=>({ ...e, date:freeDates[i].toISOString(), aiGenerated:true, trendLocked:!!e.trendUsed, locked:false, ready:false, script:null }));
+      const updated = [...keep, ...fresh].sort((a,b)=>new Date(a.date)-new Date(b.date)).map((d,i)=>({ ...d, id:i+1 }));
       setCalendar(updated);
-      showNotif(`✅ ${updated.length}-day calendar ready, starting ${start.toLocaleDateString("en-IN",{day:"numeric",month:"short"})}!`,"success");
+      showNotif(`✅ Calendar ready: ${fresh.length} new posts${keep.length?`, ${keep.length} locked post${keep.length>1?"s":""} kept`:""}.`,"success");
     } catch(e){ showNotif(`Calendar generation failed: ${e.message || "unknown error"}`,"error"); }
     setLoading(l=>({...l,calendar:false}));
-  }, [trends, showNotif]);
+  }, [trends, calendar, showNotif]);
 
   const checkAlerts = useCallback(async () => {
     setLoading(l=>({...l,alert:true}));
     try {
-      const result = await callClaude(SYSTEMS.trends,
-        `Simulate a sudden BREAKING ad-hoc trend on Instagram/social media right now that is highly relevant for a Bangalore travel/lifestyle content creator.
-Return JSON: {"hasAlert":true,"alert":{"title":string,"description":string,"urgency":"HIGH","platform":string,"category":string,"strength":string,"contentIdea":string,"suggestedFormat":string,"replaceDayNumber":number,"replacementPost":{"title":string,"hook":string,"caption":string,"cta":string,"format":string,"bucket":string}}}
-Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend, fashion moment, etc.`, 1200);
-      if(result.hasAlert&&result.alert){
-        setPendingAlert(result.alert);
-        setAlerts(prev=>[{...result.alert,timestamp:new Date()},...prev.slice(0,9)]);
-        showNotif("🚨 Breaking trend detected! Check Alerts.","alert");
+      const tomorrow = new Date(); tomorrow.setHours(0,0,0,0); tomorrow.setDate(tomorrow.getDate()+1);
+      const target = calendar.filter(d => new Date(d.date) >= tomorrow && !d.locked).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+      const today = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"});
+      const { data, sources: found } = await researchJSON(SYSTEMS.trends,
+        `Today is ${today}. Search the web for anything that broke in roughly the LAST 72 HOURS that a Bangalore travel / café / food / men's style creator should react to quickly: a place or event in Bangalore/Karnataka going viral, a festival or weather moment, a new Reels/Shorts format or audio taking off in India, a food or fashion moment.
+Be strict: if nothing genuinely new and relevant broke in that window, say so instead of inventing one.
+Return JSON: {"hasAlert":boolean,"reason":string (one line: what you checked / why no alert),"alert":{"title":string,"description":string,"platform":string,"category":string,"evidence":string (what happened and when, naming the source),"sourceUrl":string (exact URL of a search result),"contentIdea":string,"replacementPost":{"title":string,"hook":string,"caption":string (2 sentences),"cta":string,"hashtags":string,"format":"Reel"|"Carousel"|"Talking Head"|"Story"|"Vlog","bucket":${JSON.stringify(PROFILE.buckets.join("|"))}}} or null}`, { maxSearches: 5 });
+      if (data?.hasAlert && data.alert) {
+        const [a] = linkSources([data.alert], found);
+        const rp = a.replacementPost || {};
+        a.replacementPost = { ...rp, format: FORMATS[rp.format] ? rp.format : "Reel", bucket: BUCKET_COLORS[rp.bucket] ? rp.bucket : PROFILE.buckets[0] };
+        if (target) { a.replaceId = target.id; a.replaceTitle = target.title; a.replaceLabel = dayLabel(target.date); }
+        setPendingAlert(a);
+        setAlerts(prev=>[{...a,timestamp:new Date()},...prev.slice(0,9)]);
+        showNotif("🚨 Breaking trend found. See it on Home or Trends.","alert");
+      } else {
+        showNotif(`No big breaking trend right now.${data?.reason ? ` ${data.reason}` : ""}`,"info");
       }
-    } catch(e){}
+    } catch(e){ showNotif(`Breaking-trend check failed: ${e.message || "unknown error"}`,"error"); }
     setLoading(l=>({...l,alert:false}));
-  }, [showNotif]);
+  }, [calendar, showNotif]);
 
   const acceptAlert = useCallback(()=>{
     if(!pendingAlert) return;
-    const dn = pendingAlert.replaceDayNumber||1;
-    setCalendar(prev=>prev.map(d=>d.id!==dn?d:{...d,...pendingAlert.replacementPost,trendLocked:true,aiGenerated:true}));
-    showNotif(`✅ Day ${dn} updated with trending content!`,"success");
+    if(!pendingAlert.replaceId){ showNotif("No unlocked upcoming day to replace. Unlock a post or generate a calendar first.","error"); return; }
+    setCalendar(prev=>prev.map(d=>d.id!==pendingAlert.replaceId?d:{...d,...pendingAlert.replacementPost,script:null,ready:false,trendLocked:true,trendUsed:pendingAlert.title,locked:true,aiGenerated:true}));
+    showNotif(`✅ ${pendingAlert.replaceLabel} updated with the trend and locked.`,"success");
     setPendingAlert(null);
   },[pendingAlert,showNotif]);
 
@@ -1190,7 +1243,7 @@ Make it realistic: viral hashtag, Bangalore place suddenly trending, food trend,
             {view==="calendar"  && <CalendarSection calendar={calendar} onDayClick={setSelectedDay} onGenerate={generateCalendar} loadingCal={loading.calendar}/>}
             {view==="viral"     && <ViralSection showNotif={showNotif}/>}
             {view==="buckets"   && <BucketsSection calendar={calendar}/>}
-            {view==="trends"    && <TrendsSection trends={trends} loading={loading.trends} onScan={fetchTrends} lastScan={lastScan} pendingAlert={pendingAlert} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
+            {view==="trends"    && <TrendsSection trends={trends} sources={trendSources} loading={loading.trends} onScan={fetchTrends} lastScan={lastScan} pendingAlert={pendingAlert} onAccept={acceptAlert} onDismiss={()=>setPendingAlert(null)}/>}
             {view==="tracker"   && <TrackerSection calendar={calendar}/>}
             {view==="github"    && <GitHubSection calendar={calendar} trends={trends}/>}
           </div>
